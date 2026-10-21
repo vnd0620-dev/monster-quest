@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>몬스터 퀘스트 체험판</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700&display=swap">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  /* 체험판 배치: 왼쪽 선생님 화면, 오른쪽 학생 화면 + 가상 친구. 높이를 고정하지 않아 화면이 잘리지 않습니다. */
+  .demo { max-width: 1440px; margin: 0 auto; padding-block: 18px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 16px; }
+  .demo-head { display: grid; gap: 8px; }
+  .demo-head h1 { font-size: clamp(28px, 5vw, 40px); color: var(--gold); line-height: 1.1; }
+  .demo-head h1 small { font-size: .5em; color: var(--muted); margin-left: 8px; font-family: var(--body); }
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 8px; counter-reset: s; }
+  .steps li { counter-increment: s; background: var(--deep); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px 10px 44px; position: relative; font-size: 15px; }
+  .steps li::before { content: counter(s); position: absolute; left: 12px; top: 10px; width: 22px; height: 22px; border-radius: 50%; background: var(--gold); color: var(--gold-ink); display: grid; place-items: center; font-family: var(--display); }
+  .stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); gap: 18px; align-items: start; }
+  @media (max-width: 1020px) { .stage { grid-template-columns: minmax(0, 1fr); } }
+  .win { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--night); min-width: 0; }
+  .win-bar { display: flex; gap: 6px; align-items: center; background: #0c0820; padding: 8px 12px; font-size: 13px; color: var(--muted); }
+  .win-bar i { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
+  .win-bar span { margin-left: 6px; }
+  .side { display: grid; gap: 12px; justify-items: center; min-width: 0; }
+  .phone { width: min(420px, 100%); border-radius: 36px; padding: 10px; background: #07051a; border: 2px solid var(--line); box-shadow: 0 20px 50px rgba(0, 0, 0, .5); }
+  .phone-label { font-size: 13px; color: var(--muted); text-align: center; padding: 2px 0 8px; }
+  .screen { border-radius: 26px; overflow: hidden; min-height: 600px; }
+  .screen .s-root { min-height: 600px; padding-left: 10px; padding-right: 10px; }
+  .bots { width: min(420px, 100%); background: var(--deep); border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: grid; gap: 8px; }
+  .bots h2 { font-size: 18px; }
+  .bots p { font-size: 14px; color: var(--muted); }
+  .bots .inp { width: 90px; font-size: 20px; padding: 6px 8px; text-align: center; }
+  .head-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+  /* 학생 화면 숨기기: 선생님 화면을 넓게 */
+  body.hide-student .stage { grid-template-columns: minmax(0, 1fr); }
+  body.hide-student .phone { display: none; }
+  body.hide-student .side { justify-items: start; }
+  /* QR로 들어온 학생 기기: 학생 화면만 크게 */
+  body.solo .demo { display: none; }
+  #solo { min-height: 100vh; }
+</style>
+</head>
+<body>
+<div class="demo" id="demo">
+  <header class="demo-head">
+    <div class="head-row"><h1>협력 몬스터 퀴즈 <small>v0.12 체험판</small></h1><button type="button" class="btn btn-ghost sm" id="toggle-student" aria-pressed="false">🙈 학생 화면 숨기기</button></div>
+    <ol class="steps">
+      <li>왼쪽 <b>선생님 화면</b>에서 설정을 고르고 <b>방 번호 만들기</b>를 눌러요. QR이 나와요.</li>
+      <li>오른쪽 <b>학생 화면</b>에는 방 번호가 자동으로 들어가요. 출석 번호와 이름을 쓰고 입장해요. 휴대폰으로 QR을 찍어서 들어와도 돼요.</li>
+      <li>아래에서 <b>가상 친구</b> 수를 넣고, 선생님 화면에서 <b>레벨 테스트 → 게임 시작</b>을 눌러요.</li>
+    </ol>
+  </header>
+  <div class="stage">
+    <section class="win" aria-label="선생님 화면">
+      <div class="win-bar"><i></i><i></i><i></i><span>선생님 화면 (교사용 PC·전자칠판)</span></div>
+      <div id="teacher"></div>
+    </section>
+    <div class="side">
+      <div class="phone" aria-label="학생 화면"><div class="phone-label">학생 화면 (태블릿·휴대폰)</div><div class="screen" id="student"></div></div>
+      <section class="bots" aria-label="가상 친구">
+        <h2>🤖 가상 친구 넣기</h2>
+        <p id="bot-note">선생님 화면에서 방을 만들면 가상 친구를 넣을 수 있어요.</p>
+        <form class="row" id="bot-form"><label for="bot-n" class="small">몇 명?</label><input id="bot-n" class="inp" type="number" min="1" max="29" value="3" inputmode="numeric"><span class="small">명</span><button type="submit" class="btn btn-gold sm" id="bot-add" disabled>넣기</button></form>
+      </section>
+    </div>
+  </div>
+</div>
+<div id="solo" hidden></div>
+
+<script src="vendor/qrcode.js"></script>
+<script src="shared/questions.js"></script>
+<script src="shared/engine.js"></script>
+<script src="shared/figures.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/room-link.js"></script>
+<script src="js/teacher-ui.js"></script>
+<script src="js/student-ui.js"></script>
+<script>
+(function () {
+  'use strict';
+  // 이 체험판이 올라가 있는 주소 (QR에 넣는 주소)
+  const PAGE_URL = 'https://claude.ai/artifact/GN4PTEANVMJcmw18XUdmTz';
+  const solo = /^#j(\d{4})?$/.exec(location.hash);
+
+  // ── QR로 들어온 학생 기기: 학생 화면만 띄우고 선생님 기기와 '방'으로 연결 ──
+  if (solo) {
+    document.body.classList.add('solo');
+    const el = document.getElementById('solo'); el.hidden = false;
+    MQStudent.mount(el, {
+      demo: true, roomInput: true, presetRoom: solo[1] || '',
+      connect: h => MQRoomLink.client(Object.assign({}, h, {
+        onUnavailable() { el.querySelector('.s-main').innerHTML = '<section class="s-card center"><h2>연결할 수 없어요</h2><p>claude.ai에 로그인한 상태에서 QR 링크를 열어 주세요. 선생님 화면이 열려 있어야 해요.</p></section>'; },
+      })),
+    });
+    return;
+  }
+
+  // 학생 화면 숨기기/보이기 (선생님 화면을 가리지 않게)
+  (function () {
+    const b = document.getElementById('toggle-student');
+    const set = on => { document.body.classList.toggle('hide-student', on); b.setAttribute('aria-pressed', String(on)); b.textContent = on ? '👀 학생 화면 보이기' : '🙈 학생 화면 숨기기'; try { localStorage.setItem('mq_hide_student', on ? '1' : '0'); } catch (e) { /* */ } };
+    let saved = false; try { saved = localStorage.getItem('mq_hide_student') === '1'; } catch (e) { /* */ }
+    set(saved);
+    b.addEventListener('click', () => set(!document.body.classList.contains('hide-student')));
+  })();
+
+  // ── 선생님 기기: 규칙 엔진을 이 페이지에서 돌립니다 ──
+  const engine = MQEngine.createEngine({ countdownMs: 3000 });
+  const clone = o => JSON.parse(JSON.stringify(o));
+  let roomCode = '', link = 'wait', student = null, teacher = null;
+
+  function local(h, tap) {
+    const conn = { ctx: {}, send(o) { const c = clone(o); if (tap) tap(c); setTimeout(() => h.onMessage(c), 0); } };
+    setTimeout(() => { if (h.onStatus) h.onStatus(true); if (h.onOpen) h.onOpen(); }, 0);
+    return { send(o) { const c = clone(o); setTimeout(() => engine.handle(conn, c), 0); return true; } };
+  }
+
+  MQRoomLink.host(engine, { onStatus(s) { link = s; if (teacher) teacher.refresh(); } });
+
+  teacher = MQTeacher.mount(document.getElementById('teacher'), {
+    demo: true,
+    connect: h => local(h, m => { if (m.t === 'troom') { roomCode = m.code; if (student) student.refresh(); updateBots(); } }),
+    joinLink(code) {
+      if (link === 'off') return { off: '이 화면에서는 다른 기기 연결을 쓸 수 없어요. claude.ai에서 체험판을 열면 QR로 휴대폰을 연결할 수 있어요.' };
+      return { url: `${PAGE_URL}#j${code}`, fixed: `${PAGE_URL}#j`, note: link === 'on' ? '휴대폰 카메라로 찍으면 학생 화면이 열려요. claude.ai에 로그인한 기기만 들어올 수 있어요(시험용). 실제 수업은 서버 버전 주소를 써요.' : '다른 기기 연결을 준비하는 중이에요…' };
+    },
+  });
+  student = MQStudent.mount(document.getElementById('student'), { demo: true, presetRoom: () => roomCode, connect: h => local(h) });
+
+  // ───── 가상 친구 ─────
+  const NAMES = ['민준', '서연', '지우', '도윤', '하은', '채원', '예준', '수아', '시우', '지안', '유나', '건우', '서아', '하준', '이안', '나은', '도하', '아린', '로하', '은우', '시아', '준서', '다인', '우진', '소율', '현우', '예린', '태오', '가온'];
+  const bots = [], botPids = new Set();
+  const roomNow = () => engine.rooms.get(roomCode);
+
+  function addBots(n) {
+    const room = roomNow(); if (!room) return;
+    for (let i = 0; i < n; i++) {
+      const players = [...room.players.values()];
+      if (players.length >= 30) break;
+      let num = 1; while (players.some(p => p.num === num)) num++;
+      const name = NAMES.find(x => !players.some(p => p.name === x)) || ('친구' + num);
+      const bot = { st: null, acc: [0.55, 0.7, 0.85, 0.95][bots.length % 4], conn: null };
+      bot.conn = { ctx: {}, send(o) { if (o.t === 'state') bot.st = o; if (o.t === 'joined') botPids.add(o.pid); } };
+      bots.push(bot);
+      engine.handle(bot.conn, { t: 'join', code: roomCode, num, name });
+    }
+    updateBots();
+  }
+
+  const R = n => Math.floor(Math.random() * n);
+  setInterval(() => {
+    for (const b of bots) {
+      const st = b.st; if (!st || st.frozen) continue;
+      const room = engine.rooms.get(st.code);
+      const p = room && room.players.get(b.conn.ctx.pid);
+      if (!p || !p.online) continue;
+      const answer = q => { const pool = [0, 1, 2, 3].filter(i => i !== q.answer && q.tried.indexOf(i) < 0 && q.eliminated.indexOf(i) < 0); return Math.random() < b.acc || !pool.length ? q.answer : pool[R(pool.length)]; };
+      if (st.phase === 'diag' && p.diag && !p.diag.done && Math.random() < 0.12) {
+        const q = p.diag.qs[p.diag.idx]; engine.handle(b.conn, { t: 'answer', qid: q.id, choice: Math.random() < b.acc ? q.answer : (q.answer + 1) % 4 });
+      } else if (st.phase === 'playing' && st.group) {
+        const c = p.queue[p.qi];
+        if (!p.stageDone && c && Math.random() < 0.07) engine.handle(b.conn, { t: 'answer', qid: c.id, choice: answer(c) });
+        else if (st.play && st.play.q && st.play.q.canTake && st.group.box.length && Math.random() < 0.08) engine.handle(b.conn, { t: 'take' });
+        else if (p.twin && p.twin.state === 'choose' && Math.random() < 0.08) engine.handle(b.conn, { t: 'twinpick', diff: 1 + R(3) });
+        else if (p.twin && p.twin.state === 'open' && Math.random() < 0.06) engine.handle(b.conn, { t: 'twin', tid: p.twin.id, text: Math.random() < b.acc ? p.twin.answers[0] : '모르겠어요' });
+        else if (p.twin && p.twin.state === 'reward' && Math.random() < 0.15) { const ks = (st.play && st.play.twin && st.play.twin.allowed) || ['elim', 'concept', 'step']; engine.handle(b.conn, { t: 'hintpick', kind: ks[R(ks.length)] }); }
+                else if (st.group.ready && st.group.members.every(m => botPids.has(m.pid)) && Math.random() < 0.15) engine.handle(b.conn, { t: 'attack', stage: st.group.stage });
+        else if (Math.random() < 0.02) engine.handle(b.conn, { t: 'chat', emoji: st.chatList[R(st.chatList.length)] });
+      }
+    }
+  }, 900);
+
+  function updateBots() {
+    const room = roomNow();
+    const ok = room && room.phase !== 'ended';
+    document.getElementById('bot-add').disabled = !ok;
+    const n = room ? [...room.players.values()].filter(p => botPids.has(p.pid)).length : 0;
+    document.getElementById('bot-note').textContent = !room
+      ? '선생님 화면에서 방을 만들면 가상 친구를 넣을 수 있어요.'
+      : `지금 가상 친구 ${n}명 · 가상 친구는 한 문제에 10~15초쯤 걸려 스스로 풀고, 가끔 틀리고, 추가 문제를 풀어 힌트 상자에 힌트도 넣어요.`;
+  }
+  document.getElementById('bot-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const v = Math.round(Number(document.getElementById('bot-n').value));
+    if (v >= 1) addBots(Math.min(29, v));
+  });
+  setInterval(updateBots, 1500);
+})();
+</script>
+</body>
+</html>
