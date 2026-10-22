@@ -23,6 +23,7 @@
       <div class="t-body"></div>
       <div class="ov ov-qr" hidden></div>
       <div class="ov ov-detail" hidden></div>
+      <div class="ov ov-research" hidden></div>
       <div class="toasts" aria-live="polite"></div>
       <div class="conn-bar" hidden>서버와 연결이 끊겼어요. 다시 연결하는 중…</div>`;
     const $ = s => root.querySelector(s);
@@ -50,6 +51,7 @@
         case 'terror': store.del('localStorage', 'mq_t'); T.code = null; T.key = null; T.ts = null; T.resuming = false; render(); toast($('.toasts'), m.msg); break;
         case 'toast': toast($('.toasts'), m.msg); break;
         case 'tdetail': if (T.detailPid === m.pid) { T.detail = m; renderDetail(); } break;
+        case 'tresearch': T.research = m; renderResearch(); break;
         case 'tfx': T.flash[m.group] = Date.now(); toast($('.toasts'), m.last ? `🏆 ${m.team} 최종 보스 처치!` : `⚔️ ${m.team} 합동 공격 성공!`); break;
       }
     }
@@ -141,6 +143,7 @@
     }
 
     // ───── 진행 버튼 ─────
+    const researchBtn = (label, main) => `<button type="button" class="btn ${main ? 'btn-violet' : 'btn-ghost sm'}" data-act="research">📊 ${label}</button>`;
     function controls(ts) {
       const on = ts.players.filter(p => p.online).length;
       const freeze = ts.frozen
@@ -148,13 +151,13 @@
         : `<button type="button" class="btn btn-violet" data-act="freeze" data-on="1">❄️ Freeze (모두 멈춤)</button>`;
       const done = ts.players.filter(p => p.online && p.diag && p.diag.done).length;
       switch (ts.phase) {
-        case 'lobby': return `<button type="button" class="btn btn-gold btn-big" data-act="diag" ${on ? '' : 'disabled'}>▶ 레벨 테스트 시작</button><span class="muted">접속 <b>${on}</b>명 · 모두 들어오면 눌러 주세요 (학생마다 ${ts.settings.diag}문항)</span>`;
+        case 'lobby': return `<button type="button" class="btn btn-gold btn-big" data-act="diag" ${on ? '' : 'disabled'}>▶ 레벨 테스트 시작</button><span class="muted">접속 <b>${on}</b>명 · 모두 들어오면 눌러 주세요 (학생마다 ${ts.settings.diag}문항)</span>${researchBtn('지난 게임 협력 리포트')}`;
         case 'diagcount': return `<b>3, 2, 1… 곧 레벨 테스트가 시작돼요!</b>`;
         case 'diag': return `<b>레벨 테스트 ${done} / ${on}명 완료</b><button type="button" class="btn btn-ghost" data-act="group">모둠 바로 편성</button>${freeze}`;
         case 'grouped': return `<button type="button" class="btn btn-gold btn-big" data-act="start">▶ 게임 시작 (3·2·1)</button>${freeze}`;
         case 'countdown': return `<b>3, 2, 1… 곧 시작해요!</b>`;
-        case 'playing': return `${freeze}<button type="button" class="btn btn-danger" data-act="ask-end">🏁 게임 끝내기</button><span class="muted small">모든 모둠이 최종 보스를 물리치면 자동으로 끝나요</span>`;
-        default: return `<button type="button" class="btn btn-gold" data-act="reset">🔄 같은 학생들과 다시 하기</button><span class="muted">대기실로 돌아가 설정을 바꿀 수 있어요</span>`;
+        case 'playing': return `${freeze}<button type="button" class="btn btn-danger" data-act="ask-end">🏁 게임 끝내기</button>${researchBtn('지금까지 협력 리포트')}<span class="muted small">모든 모둠이 최종 보스를 물리치면 자동으로 끝나요</span>`;
+        default: return `${researchBtn('협력 리포트 보기·내려받기', true)}<button type="button" class="btn btn-gold" data-act="reset">🔄 같은 학생들과 다시 하기</button><span class="muted">다시 하기 전에 협력 리포트를 내려받아 두세요</span>`;
       }
     }
 
@@ -214,7 +217,7 @@
       $('[data-act="ask-new"]').hidden = !ts;
       const cf = $('.t-confirm');
       if (T.confirm) {
-        const txt = T.confirm === 'end' ? '게임을 끝낼까요? 학생 화면에 결과가 나와요.' : '지금 수업을 닫고 새 수업을 만들까요? 학생들은 새 방 번호로 다시 들어와야 해요.';
+        const txt = T.confirm === 'end' ? '게임을 끝낼까요? 학생 화면에 결과가 나와요.' : '지금 수업을 닫고 새 수업을 만들까요? 학생들은 새 방 번호로 다시 들어와야 하고, 협력 리포트도 사라져요. 필요하면 먼저 내려받아 두세요.';
         cf.innerHTML = `<span>${txt}</span><button type="button" class="btn btn-danger sm" data-act="${T.confirm === 'end' ? 'end' : 'new'}">네</button><button type="button" class="btn btn-ghost sm" data-act="cancel">아니요</button>`;
         cf.hidden = false;
       } else cf.hidden = true;
@@ -238,6 +241,83 @@
       }
       if (focusId) { const el = body.querySelector('#' + focusId); if (el) el.focus(); }
     }
+
+    // ───── 협력 리포트 (연구용) ─────
+    const n = v => (v == null ? '-' : v);
+    const pctTxt = v => (v == null ? '-' : v + '%');
+    const SV = ['아니다', '조금 그렇다', '그렇다'];
+    function renderResearch() {
+      const ov = $('.ov-research');
+      if (!T.researchOpen) { ov.hidden = true; return; }
+      const R = T.research;
+      if (!R) { ov.innerHTML = '<div class="ov-box detail-box"><p class="muted">불러오는 중…</p></div>'; ov.hidden = false; return; }
+      if (R.empty) { ov.innerHTML = `<div class="ov-box detail-box"><div class="row"><h2 class="grow">📊 협력 리포트</h2><button type="button" class="btn btn-ghost sm" data-act="research-close">닫기 ✕</button></div><p class="muted">아직 게임 기록이 없어요. 게임을 시작하면 기록이 쌓여요.</p></div>`; ov.hidden = false; return; }
+      const S = R.summary, M = R.meta;
+      const tbl = (head, rows) => `<div class="tbl-wrap"><table class="tbl"><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${head.length}" class="muted">기록이 없어요</td></tr>`}</tbody></table></div>`;
+      const stat = (v, label, tip) => `<div title="${esc(tip || '')}"><b>${v}</b><span>${label}</span></div>`;
+      ov.innerHTML = `<div class="ov-box detail-box research-box" role="dialog" aria-label="협력 리포트">
+        <div class="row"><h2 class="grow">📊 협력 리포트 ${R.previous ? '<span class="pill">지난 게임</span>' : M.ended ? '' : '<span class="pill">진행 중</span>'}</h2>
+          <button type="button" class="btn btn-ghost sm" data-act="research-refresh">새로 고침</button><button type="button" class="btn btn-ghost sm" data-act="research-close">닫기 ✕</button></div>
+        <p class="muted small">${esc(M.date.slice(0, 10))} · 방 ${esc(M.code)} · ${esc(M.unit)}${M.area !== '전체' ? ' · ' + esc(M.area) : ''} · 스테이지 ${M.stages} · 1인 ${M.perStage}문제 · 모둠 ${M.size}명 기준 · 게임 시간 ${M.minutes}분</p>
+        <section class="dl-box"><h3>⬇️ 엑셀 파일로 내려받기</h3><p class="small muted">엑셀에서 바로 열리는 파일(CSV)이에요. 수업마다 내려받아 모아 두면 보고서 자료가 돼요.</p>
+          <div class="row wrap">${[['summary', '요약·집단 비교·설문'], ['students', '학생별'], ['groups', '모둠별'], ['gifts', '힌트 주고받기']].map(([k, l]) => `<button type="button" class="btn btn-gold sm" data-act="csv" data-k="${k}">⬇️ ${l}</button>`).join('')}</div></section>
+        <h3>한눈에 보기</h3>
+        <div class="t-stats">${stat(pctTxt(S.allSolveRate), '전원 해결률', '모둠원 모두가 자기 문제를 해결해 합동 공격까지 간 스테이지의 비율')}${stat(pctTxt(S.solveRate), '평균 문제 해결률', '받은 문제 중 끝까지 해결한 비율의 평균')}${stat(`${S.hintsUsed}/${S.hintsMade}`, '쓰인 힌트/만든 힌트', '친구 힌트가 실제로 쓰인 수 / 만든 수')}${stat(pctTxt(S.hintSolvedRate), '친구 힌트 뒤 해결률', '친구 힌트를 쓴 문제를 결국 해결한 비율')}${stat(S.lowToHigh, '상위→하위 도움', '레벨 3~4 학생이 만든 힌트를 레벨 1~2 학생이 쓴 횟수')}${stat(n(S.avgGapSec) + '초', '평균 완료 격차', '모둠에서 첫 번째로 끝낸 학생과 마지막 학생 사이 시간의 평균')}${stat(S.hands, '손들기', '게임 중 손을 든 횟수 (선생님이 내려 준 횟수 ' + S.lowered + ')')}${stat(`${S.freezes}회 · ${S.frozenSec}초`, 'Freeze', '모두 멈춤 횟수와 멈춘 시간')}${stat(`${S.surveyDone}/${S.students}`, '설문 응답', '게임 끝 설문에 답한 학생 수')}</div>
+        <h3>레벨 집단 비교 <span class="muted small">(레벨 테스트 기준)</span></h3>
+        ${tbl(['집단', '학생 수', '문제 해결률', '한 번에 맞힌 비율', '만든 힌트(평균)', '받은 힌트(평균)', '손들기(평균)', '설문4 필요한 사람(0~2)', '설문5 협력(0~2)'], R.bands.map(b => [esc(b.label), b.n, pctTxt(b.solveRate), pctTxt(b.firstTryRate), n(b.hintsMade), n(b.hintsGot), n(b.hands), n(b.q4), n(b.q5)]))}
+        <h3>모둠별</h3>
+        ${tbl(['모둠', '인원', '레벨 구성', '처치/스테이지', '전원 해결률', '스테이지 평균 시간(초)', '평균 완료 격차(초)', '만든 힌트', '쓰인 힌트', '힌트 뒤 해결'], R.groups.map(g => [esc(g.name), g.size, esc(g.levels), `${g.cleared}/${g.stages}`, pctTxt(g.allSolveRate), n(g.avgStageSec), n(g.avgGapSec), g.hintsMade, g.hintsUsed, g.hintsSolved]))}
+        <h3>게임 끝 설문</h3>
+        ${tbl(['문항', '응답 수', '그렇다', '조금 그렇다', '아니다', '평균(0~2)'], R.survey.map(q => [esc(q.text), q.n, q.yes, q.some, q.no, n(q.avg)]))}
+        <h3>학생별</h3>
+        ${tbl(['번호', '이름', '모둠', '레벨', '해결/받은 문제', '해결률', '한 번에', '만든 힌트', '친구가 쓴 내 힌트', '받은 힌트(해결)', '손들기', '설문 1~5'], R.students.map(x => [x.num, esc(x.name), esc(x.group), x.level, `${x.solved}/${x.dealt}`, pctTxt(x.solveRate), pctTxt(x.firstTryRate), x.hintsMade, x.hintsUsedByFriends, `${x.hintsGot}(${x.hintsGotSolved})`, x.hands, ['q1', 'q2', 'q3', 'q4', 'q5'].map(k => x.survey[k] == null ? '·' : x.survey[k]).join(' ')]))}
+        <h3>힌트 주고받기 <span class="muted small">(누가 만든 힌트를 누가 썼는지)</span></h3>
+        ${tbl(['시작 후(분)', '스테이지', '모둠', '만든 학생(레벨)', '쓴 학생(레벨)', '힌트 종류', '평가 요소', '결국 해결', '힌트 뒤 더 틀림'], R.gifts.slice(0, 80).map(e => [e.min, e.stage, esc(e.group), `${e.fromNum}번 ${esc(e.fromName || '')} (${e.fromLevel})`, `${e.toNum}번 ${esc(e.toName || '')} (${e.toLevel})`, esc(e.kind), esc(e.area), e.solved ? '⭕' : '❌', n(e.wrongAfter)]))}
+        ${R.gifts.length > 80 ? `<p class="muted small">화면에는 80개까지만 보여요. 전체 ${R.gifts.length}개는 파일에 모두 들어 있어요.</p>` : ''}
+        <p class="muted small">레벨 1~2를 하위 집단, 3~4를 상위 집단으로 나눴어요(레벨 테스트 ${esc(String(T.ts ? T.ts.settings.diag : ''))}문항 기준). 설문 점수는 그렇다 2 · 조금 그렇다 1 · 아니다 0이에요.</p>
+      </div>`;
+      ov.hidden = false;
+    }
+    // 엑셀에서 한글이 깨지지 않게 BOM을 붙인 CSV
+    const csvCell = v => { const t = v == null ? '' : String(v); return /[",\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+    const csvText = rows => '\ufeff' + rows.map(r => r.map(csvCell).join(',')).join('\r\n');
+    function csvRows(k, R) {
+      const M = R.meta, S = R.summary, sv = x => (x == null ? '' : x);
+      if (k === 'summary') return [
+        ['항목', '값', '설명'], ['날짜', M.date.slice(0, 10), ''], ['방 번호', M.code, ''], ['단원', M.unit, ''], ['평가 요소', M.area, ''], ['스테이지 수', M.stages, ''], ['1인 문제 수', M.perStage, ''], ['모둠 인원 설정', M.size, ''], ['게임 시간(분)', M.minutes, ''],
+        ['학생 수', S.students, ''], ['모둠 수', S.groups, ''], ['전원 해결률(%)', sv(S.allSolveRate), '모둠원 모두가 해결해 합동 공격까지 간 스테이지 비율'], ['최종 보스 처치 모둠 수', S.finishedGroups, ''],
+        ['평균 문제 해결률(%)', sv(S.solveRate), '받은 문제 중 끝까지 해결한 비율의 평균'], ['만든 힌트 수', S.hintsMade, ''], ['쓰인 힌트 수', S.hintsUsed, ''], ['힌트 사용률(%)', sv(S.hintUseRate), '쓰인 힌트 ÷ 만든 힌트'],
+        ['친구 힌트 뒤 해결률(%)', sv(S.hintSolvedRate), '친구 힌트를 쓴 문제를 결국 해결한 비율'], ['상위→하위 도움 횟수', S.lowToHigh, '레벨 3~4가 만든 힌트를 레벨 1~2가 쓴 횟수'], ['평균 완료 격차(초)', sv(S.avgGapSec), '모둠 안 첫 완료자와 마지막 완료자 사이 시간'],
+        ['손들기 횟수', S.hands, ''], ['선생님이 손 내려 준 횟수', S.lowered, ''], ['Freeze 횟수', S.freezes, ''], ['Freeze 시간(초)', S.frozenSec, ''], ['설문 응답 학생 수', S.surveyDone, ''],
+        [], ['레벨 집단 비교', '학생 수', '문제 해결률(%)', '한 번에 맞힌 비율(%)', '만든 힌트(평균)', '받은 힌트(평균)', '손들기(평균)', '설문4 평균(0~2)', '설문5 평균(0~2)'],
+        ...R.bands.map(b => [b.label, b.n, sv(b.solveRate), sv(b.firstTryRate), sv(b.hintsMade), sv(b.hintsGot), sv(b.hands), sv(b.q4), sv(b.q5)]),
+        [], ['설문 문항', '응답 수', '그렇다(2)', '조금 그렇다(1)', '아니다(0)', '평균(0~2)'], ...R.survey.map(q => [q.id + '. ' + q.text, q.n, q.yes, q.some, q.no, sv(q.avg)]),
+      ];
+      if (k === 'students') return [
+        ['번호', '이름', '모둠', '레벨', '집단', '받은 문제', '해결한 문제', '해결률(%)', '한 번에 맞힌 문제', '한 번에 맞힌 비율(%)', '틀린 횟수', '추가 문제 해결', '만든 힌트', '친구가 쓴 내 힌트', '받은 힌트', '받은 힌트 뒤 해결', '손들기', '손든 시간(초)', '선생님이 손 내려 줌', '반응 이모지', '오답노트', '오답노트 해결', ...R.areaNames.map(a => '수준: ' + a), '설문1', '설문2', '설문3', '설문4', '설문5'],
+        ...R.students.map(x => [x.num, x.name, x.group, x.level, x.band, x.dealt, x.solved, sv(x.solveRate), x.firstTry, sv(x.firstTryRate), x.wrong, x.extraSolved, x.hintsMade, x.hintsUsedByFriends, x.hintsGot, x.hintsGotSolved, x.hands, x.handSec, x.lowered, x.reacts, x.notes, x.notesResolved, ...R.areaNames.map(a => x.levels[a] || ''), sv(x.survey.q1), sv(x.survey.q2), sv(x.survey.q3), sv(x.survey.q4), sv(x.survey.q5)]),
+      ];
+      if (k === 'groups') return [
+        ['모둠', '인원', '레벨 구성', '스테이지 수', '처치한 스테이지', '최종 보스 처치', '전원 해결률(%)', '스테이지 평균 시간(초)', '평균 완료 격차(초)', '만든 힌트', '쓰인 힌트', '힌트 뒤 해결', '스테이지별 (번호:시간초/격차초)'],
+        ...R.groups.map(g => [g.name, g.size, g.levels, g.stages, g.cleared, g.done ? '예' : '아니요', sv(g.allSolveRate), sv(g.avgStageSec), sv(g.avgGapSec), g.hintsMade, g.hintsUsed, g.hintsSolved, g.stageRows.map(r => `${r.stage}:${r.sec}/${r.gapSec}`).join(' ')]),
+      ];
+      return [
+        ['시작 후(분)', '스테이지', '모둠', '만든 학생 번호', '만든 학생 이름', '만든 학생 레벨', '쓴 학생 번호', '쓴 학생 이름', '쓴 학생 레벨', '힌트 종류', '평가 요소', '결국 해결', '힌트 뒤 더 틀린 횟수', '해결까지(초)'],
+        ...R.gifts.map(e => [e.min, e.stage, e.group, e.fromNum, e.fromName, e.fromLevel, e.toNum, e.toName, e.toLevel, e.kind, e.area, e.solved ? '예' : '아니요', sv(e.wrongAfter), sv(e.solvedSec)]),
+      ];
+    }
+    function downloadCsv(k) {
+      const R = T.research; if (!R || R.empty) return;
+      const name = { summary: '요약', students: '학생별', groups: '모둠별', gifts: '힌트주고받기' }[k];
+      const file = `협력리포트_${R.meta.date.slice(0, 10)}_방${R.meta.code}_${name}.csv`;
+      const blob = new Blob([csvText(csvRows(k, R))], { type: 'text/csv;charset=utf-8' });
+      try {
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file;
+        document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+        toast($('.toasts'), `⬇️ ${file} 을(를) 내려받았어요.`);
+      } catch (e) { toast($('.toasts'), '이 화면에서는 내려받기가 막혀 있어요. 실제 서버 주소에서 내려받아 주세요.'); }
+    }
+    window.__mqCsv = { csvRows, csvText }; // 자동 검사용
 
     function renderDetail() {
       const d = T.detail, ov = $('.ov-detail');
@@ -292,6 +372,10 @@
         case 'detail-close': T.detailPid = null; T.detail = null; renderDetail(); net.send({ t: 'tdetail', pid: null }); break;
         case 'qr-close': $('.ov-qr').hidden = true; break;
         case 'lower': net.send({ t: 'tlower', pid: el.dataset.pid }); break;
+        case 'research': T.research = null; T.researchOpen = true; renderResearch(); net.send({ t: 'tresearch' }); break;
+        case 'research-close': T.researchOpen = false; $('.ov-research').hidden = true; break;
+        case 'research-refresh': net.send({ t: 'tresearch' }); break;
+        case 'csv': downloadCsv(el.dataset.k); break;
         case 'copy': {
           const fixed = el.dataset.which === 'fixed', t = (joinInfo() || {})[fixed ? 'fixed' : 'url']; if (!t) return;
           const fallback = () => { const r = document.createRange(); r.selectNodeContents($(fixed ? '#t-fixed' : '#t-url')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast($('.toasts'), '링크를 선택했어요. Ctrl+C로 복사해 주세요.'); };

@@ -205,8 +205,9 @@
     // 풀던 추가 문제(또는 아직 상자에 넣지 않은 힌트)는 다음 스테이지로 이어 갑니다.
     const keepTwin = p => !!(p.twin && (p.twin.state === 'open' || p.twin.state === 'reward'));
     function dealStage(room, p, fresh) {
-      p.queue = []; p.qi = 0; p.stageDone = false; if (fresh || !keepTwin(p)) p.twin = null;
+      p.queue = []; p.qi = 0; p.stageDone = false; p.stageDoneAt = null; if (fresh || !keepTwin(p)) p.twin = null;
       for (let i = 0; i < room.settings.perStage; i++) p.queue.push(pickQuestion(room, p, targetDiff(room, p)));
+      if (p.rs) p.rs.dealt += p.queue.length;
       showCurrent(room, p);
     }
     function openTwin(room, p, diff) {
@@ -385,8 +386,74 @@
         st.play.helpWanted = !!p.stageDone && !g.done && needyOf(room, g, p).length > 0; // 누가 막혔는지는 보내지 않음
       }
       if (room.phase === 'playing' && !g) st.waiting = true;
-      if (room.phase === 'ended' || (room.phase === 'playing' && g && g.done)) st.result = resultOf(room, p);
+      if (room.phase === 'ended' || (room.phase === 'playing' && g && g.done)) {
+        st.result = resultOf(room, p);
+        if (room.rlog && p.rs) st.survey = { done: !!p.rs.survey, qs: surveyQs(p).map(id => ({ id, text: SURVEY[id] })) };
+      }
       return st;
+    }
+    // ───── 연구용 협력 리포트 (선생님이 내려받기) ─────
+    // 레벨 1~2를 '하위 집단', 3~4를 '상위 집단'으로 나눔 (레벨 테스트 기준)
+    function research(room) {
+      const L = room.rlog;
+      if (!L) return { t: 'tresearch', empty: true };
+      const u = unitOf(room), end = L.end || now();
+      const pct = (a, b) => (b ? Math.round(a / b * 1000) / 10 : null);
+      const avg = arr => { const v = arr.filter(x => x != null); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length * 10) / 10 : null; };
+      const sec = ms => Math.round(ms / 1000);
+      const gname = gid => (room.groups.find(g => g.id === gid) || {}).name || '-';
+      const players = [...room.players.values()].filter(p => p.group || (p.rs && p.rs.dealt)).sort((a, b) => a.num - b.num);
+      const byPid = new Map(players.map(p => [p.pid, p]));
+      const students = players.map(p => {
+        const qs = p.records.filter(r => r.kind === 'q'), rs = p.rs || {};
+        const usedByOthers = L.gifts.filter(e => e.fromPid === p.pid && e.toPid !== p.pid);
+        const got = L.gifts.filter(e => e.toPid === p.pid);
+        const areas = areaSummary(room, p);
+        const sv = rs.survey || {};
+        const handMs = (rs.handMs || 0) + (rs.handUpAt != null ? end - rs.handUpAt : 0);
+        return {
+          num: p.num, name: p.name, group: gname(p.group), level: p.level || 0, band: (p.level || 0) >= 3 ? '상위(레벨 3~4)' : '하위(레벨 1~2)',
+          dealt: rs.dealt || 0, solved: qs.length, solveRate: pct(qs.length, rs.dealt || 0), firstTry: qs.filter(r => r.wrong === 0).length, firstTryRate: pct(qs.filter(r => r.wrong === 0).length, qs.length), wrong: p.stats.wrong,
+          extraSolved: p.stats.extra, hintsMade: madeCount(p), hintsUsedByFriends: usedByOthers.length, hintsGot: got.length, hintsGotSolved: got.filter(e => e.solved).length,
+          hands: rs.hands || 0, handSec: sec(handMs), lowered: rs.lowered || 0, reacts: Object.values(rs.reacts || {}).reduce((a, b) => a + b, 0),
+          notes: p.notes.length, notesResolved: p.notes.filter(n => n.resolved).length,
+          levels: Object.fromEntries(areas.map(a => [a.name, { high: '상', mid: '중', low: '하', na: '확인 필요' }[a.level]])),
+          survey: { q1: sv.q1 ?? null, q2: sv.q2 ?? null, q3: sv.q3 ?? null, q4: sv.q4 ?? null, q5: sv.q5 ?? null }, surveyDone: !!rs.survey,
+        };
+      });
+      const groups = room.groups.map(g => {
+        const st = L.stages.filter(x => x.gid === g.id);
+        const gift = L.gifts.filter(e => e.gid === g.id);
+        const mem = g.members.map(pid => byPid.get(pid)).filter(Boolean);
+        return {
+          name: g.name, size: mem.length, levels: mem.map(m => m.level || 0).join('·'), stages: room.settings.stages, cleared: g.cleared, done: g.done,
+          allSolveRate: pct(g.cleared, room.settings.stages), avgStageSec: avg(st.map(x => sec(x.cleared - x.start))), avgGapSec: avg(st.map(x => sec(x.gapMs))),
+          hintsMade: mem.reduce((a, m) => a + madeCount(m), 0), hintsUsed: gift.length, hintsSolved: gift.filter(e => e.solved).length,
+          stageRows: st.map(x => ({ stage: x.stage, sec: sec(x.cleared - x.start), gapSec: sec(x.gapMs) })),
+        };
+      });
+      const gifts = L.gifts.map(e => {
+        const a = byPid.get(e.fromPid) || room.players.get(e.fromPid) || {}, b = byPid.get(e.toPid) || room.players.get(e.toPid) || {};
+        return { min: Math.round((e.at - L.start) / 6000) / 10, stage: e.stage, group: gname(e.gid), fromNum: a.num, fromName: a.name, fromLevel: a.level || 0, toNum: b.num, toName: b.name, toLevel: b.level || 0, kind: GIFTS[e.kind], area: e.area, solved: e.solved, wrongAfter: e.wrongAfter, solvedSec: e.solvedSec };
+      });
+      const band = name => students.filter(x => x.band.startsWith(name));
+      const bandRow = (label, arr) => ({ label, n: arr.length, solveRate: avg(arr.map(x => x.solveRate)), firstTryRate: avg(arr.map(x => x.firstTryRate)), hintsMade: avg(arr.map(x => x.hintsMade)), hintsGot: avg(arr.map(x => x.hintsGot)), hands: avg(arr.map(x => x.hands)), q4: avg(arr.map(x => x.survey.q4)), q5: avg(arr.map(x => x.survey.q5)) });
+      const made = students.reduce((a, x) => a + x.hintsMade, 0);
+      const survey = Object.keys(SURVEY).map(id => { const v = students.map(x => x.survey[id]).filter(x => x != null); return { id, text: SURVEY[id], n: v.length, yes: v.filter(x => x === 2).length, some: v.filter(x => x === 1).length, no: v.filter(x => x === 0).length, avg: avg(v) }; });
+      return {
+        t: 'tresearch', empty: false,
+        meta: { code: room.code, date: new Date(L.start).toISOString(), unit: u.name, area: room.settings.area === 'all' ? '전체' : ((u.areas.find(a => a.id === room.settings.area) || {}).name || ''), stages: room.settings.stages, perStage: room.settings.perStage, size: room.settings.size, minutes: Math.round((end - L.start) / 6000) / 10, ended: room.phase === 'ended' },
+        summary: {
+          students: students.length, groups: groups.length, allSolveRate: pct(room.groups.reduce((a, g) => a + g.cleared, 0), room.groups.length * room.settings.stages),
+          finishedGroups: room.groups.filter(g => g.done).length, solveRate: avg(students.map(x => x.solveRate)),
+          hintsMade: made, hintsUsed: gifts.length, hintUseRate: pct(gifts.length, made), hintSolvedRate: pct(gifts.filter(x => x.solved).length, gifts.length),
+          lowToHigh: gifts.filter(x => x.fromLevel >= 3 && x.toLevel <= 2).length,
+          freezes: L.freezes, frozenSec: sec(L.frozenMs + (L.frozenAt ? end - L.frozenAt : 0)), hands: students.reduce((a, x) => a + x.hands, 0), lowered: students.reduce((a, x) => a + x.lowered, 0),
+          avgGapSec: avg(groups.map(g => g.avgGapSec)), surveyDone: students.filter(x => x.surveyDone).length,
+        },
+        bands: [bandRow('하위 집단 (레벨 1~2)', band('하위')), bandRow('상위 집단 (레벨 3~4)', band('상위'))],
+        groups, students, gifts, survey, areaNames: u.areas.map(a => a.name),
+      };
     }
     function teacherState(room) {
       const players = [...room.players.values()].sort((a, b) => a.num - b.num).map(p => {
@@ -444,19 +511,21 @@
     }
     function startPlaying(room) {
       countdownTo(room, 'countdown', () => {
-        for (const g of room.groups) { g.stage = 1; g.cleared = 0; g.done = false; g.box = []; setStageHp(room, g); }
+        for (const g of room.groups) { g.stage = 1; g.cleared = 0; g.done = false; g.box = []; g.stageStart = now(); setStageHp(room, g); }
+        room.rlog = { start: now(), end: null, gifts: [], stages: [], freezes: 0, frozenMs: 0, frozenAt: null };
         room.phase = 'playing';
         for (const p of room.players.values()) if (groupOf(room, p)) dealStage(room, p, true);
         pushAll(room);
       });
     }
-    function endGame(room) { room.token++; room.phase = 'ended'; room.frozen = false; pushAll(room); }
+    function endGame(room) { room.token++; if (room.rlog && !room.rlog.end) { if (room.rlog.frozenAt) { room.rlog.frozenMs += now() - room.rlog.frozenAt; room.rlog.frozenAt = null; } room.rlog.end = now(); } room.phase = 'ended'; room.frozen = false; pushAll(room); }
     function checkAllDone(room) {
       if (room.phase !== 'playing' || !room.groups.length || !room.groups.every(g => g.done)) return;
       const token = room.token;
       later(() => { if (room.token === token && room.phase === 'playing') endGame(room); }, END_DELAY_MS);
     }
     function resetToLobby(room) {
+      if (room.rlog) { room.prevResearch = research(room); room.rlog = null; } // 지난 게임 리포트는 대기실에서도 내려받을 수 있게 남겨 둠
       room.token++; room.phase = 'lobby'; room.frozen = false; room.groups = []; room.gseq = 0; room.tdetail = null;
       for (const [pid, p] of room.players) {
         if (!p.online) { room.players.delete(pid); continue; }
@@ -464,7 +533,7 @@
       }
     }
     function freshProgress() {
-      return { level: 0, diag: null, group: null, queue: [], qi: 0, stageDone: false, twin: null, lastArea: null, seen: new Set(), seenTwin: new Set(), records: [], notes: [], stats: { ok: 0, wrong: 0, extra: 0, hintsSent: 0, hintsGot: 0 }, chatAt: 0, made: {} };
+      return { level: 0, diag: null, group: null, queue: [], qi: 0, stageDone: false, twin: null, lastArea: null, seen: new Set(), seenTwin: new Set(), records: [], notes: [], stats: { ok: 0, wrong: 0, extra: 0, hintsSent: 0, hintsGot: 0 }, chatAt: 0, made: {}, rs: { dealt: 0, hands: 0, handUpAt: null, handMs: 0, lowered: 0, reacts: {}, survey: null } };
     }
 
     function onCorrect(room, p, g, c) {
@@ -472,8 +541,9 @@
       p.records.push({ kind: 'q', qid: c.qid, diff: c.diff, stage: g.stage, area: c.area, areaName: c.areaName, text: c.text, answer: c.answerText, wrong: c.tried.length, picks: c.tried.map(i => c.choices[i]), mis: c.tried.map(i => c.mis[i]).filter(Boolean), gifts: c.gifts.length });
       g.hp = g.hp > TEAM ? Math.max(TEAM, g.hp - SMALL) : g.hp;
       p.qi++; p.lastArea = c.area;
+      for (const e of c.glog || []) { e.solved = true; e.wrongAfter = c.tried.length - e.triedBefore; e.solvedSec = Math.round((now() - e.at) / 1000); }
       if (p.qi >= p.queue.length) {
-        p.stageDone = true;
+        p.stageDone = true; p.stageDoneAt = now();
         // 이 학생이 마지막이라 합동 공격이 열리면 새 추가 문제는 내지 않음 (지난 스테이지에서 풀던 문제는 이어서)
         if (!keepTwin(p)) p.twin = isReady(room, g) ? null : { state: 'choose' };
       } else showCurrent(room, p);
@@ -489,9 +559,25 @@
       if (kind === 'concept') { const a = areaById(room, c.area); return a ? a.concept : c.hints[0]; }
       return c.step;
     }
+    function handDown(p, byTeacher) {
+      if (!p.rs || p.rs.handUpAt == null) return;
+      p.rs.handMs += now() - p.rs.handUpAt; p.rs.handUpAt = null;
+      if (byTeacher) p.rs.lowered++;
+    }
+    // 게임 끝 학생 설문: 상황에 맞는 문항만 (친구 힌트를 쓴 학생 / 힌트를 만든 학생 / 모두)
+    const SURVEY = {
+      q1: '친구가 만든 힌트가 문제를 푸는 데 도움이 되었나요?',
+      q2: '내가 만든 힌트가 친구에게 도움이 되었을 것 같나요?',
+      q3: '친구를 위해 추가 문제를 풀며 힌트를 만드는 것이 나에게도 공부가 되었나요?',
+      q4: '오늘 게임에서 나도 모둠에 꼭 필요한 사람이라고 느꼈나요?',
+      q5: '몬스터를 모둠이 함께 물리치는 방식이 친구와 협력하게 만들었나요?',
+    };
+    const madeCount = p => Object.values(p.made || {}).reduce((a, b) => a + b, 0);
+    const surveyQs = p => [p.stats.hintsGot > 0 ? 'q1' : null, madeCount(p) > 0 ? 'q2' : null, madeCount(p) > 0 ? 'q3' : null, 'q4', 'q5'].filter(Boolean);
     function applyGift(room, g, item, to) {
       const c = curOf(to);
       c.gifts.push({ from: item.from, kind: item.kind, label: GIFTS[item.kind], text: giftText(room, item.kind, c) });
+      if (room.rlog) { const e = { at: now(), stage: g.stage, gid: g.id, fromPid: item.fromPid, toPid: to.pid, kind: item.kind, qid: c.qid, area: c.areaName, triedBefore: c.tried.length, solved: false, wrongAfter: null, solvedSec: null }; room.rlog.gifts.push(e); (c.glog = c.glog || []).push(e); }
       g.box = g.box.filter(b => b !== item);
       to.stats.hintsGot++;
       const giver = room.players.get(item.fromPid);
@@ -502,6 +588,11 @@
       const dmg = g.hp;
       g.hp = 0; g.cleared++;
       const last = g.stage >= room.settings.stages;
+      if (room.rlog) {
+        const mem = membersOf(room, g), ts = mem.map(m => m.stageDoneAt).filter(Boolean);
+        room.rlog.stages.push({ gid: g.id, stage: g.stage, start: g.stageStart || room.rlog.start, cleared: now(), size: mem.length, gapMs: ts.length > 1 ? Math.max(...ts) - Math.min(...ts) : 0 });
+        g.stageStart = now();
+      }
       const ev = { t: 'fx', kind: 'team', by: by.name, dmg, monster: mon, cleared: true, last };
       for (const m of membersOf(room, g)) if (m.online) m.points += POINTS.team;
       if (last) { g.done = true; for (const m of membersOf(room, g)) m.twin = null; }
@@ -610,10 +701,14 @@
           case 'tlower': { // 선생님이 학생 손 내려 주기
             const p = room.players.get(String(m.pid));
             if (!p || !p.hand) return;
-            p.hand = false; return pushAll(room);
+            p.hand = false; handDown(p, true); return pushAll(room);
           }
           case 'tfreeze':
             if (room.phase === 'lobby' || room.phase === 'ended') return;
+            if (room.rlog && room.phase === 'playing' && !!m.on !== room.frozen) {
+              if (m.on) { room.rlog.freezes++; room.rlog.frozenAt = now(); }
+              else if (room.rlog.frozenAt) { room.rlog.frozenMs += now() - room.rlog.frozenAt; room.rlog.frozenAt = null; }
+            }
             room.frozen = !!m.on; return pushAll(room);
           case 'tend':
             if (['diagcount', 'diag', 'grouped', 'countdown', 'playing'].indexOf(room.phase) < 0) return;
@@ -628,6 +723,7 @@
             room.players.delete(p.pid);
             return pushAll(room);
           }
+          case 'tresearch': return send(conn, room.rlog ? research(room) : room.prevResearch ? Object.assign({}, room.prevResearch, { previous: true }) : research(room));
           case 'tdetail': {
             const p = m.pid ? room.players.get(String(m.pid)) : null;
             room.tdetail = p ? p.pid : null;
@@ -746,10 +842,19 @@
           if (!isReady(room, g)) return toast(conn, '조금만 기다려요. 모두 해결하면 합동 공격을 할 수 있어요.');
           return doTeamAttack(room, g, p);
         }
+        case 'survey': { // 게임 끝 설문 (한 번만)
+          const g2 = groupOf(room, p);
+          if (!p.rs || p.rs.survey || !room.rlog || !(room.phase === 'ended' || (room.phase === 'playing' && g2 && g2.done))) return;
+          const ans = {};
+          for (const id of surveyQs(p)) { const v = intIn(m.answers && m.answers[id], 0, 2); if (v === null) return toast(conn, '모든 질문에 답해 주세요.'); ans[id] = v; }
+          p.rs.survey = ans;
+          return pushAll(room);
+        }
         case 'chat': { // 이모지 반응: 한 번에 하나만, 프로필 오른쪽 위에 10초 동안 (같은 것을 다시 누르면 내림)
           if (CHAT.indexOf(m.emoji) < 0 || room.frozen) return;
           const t = now(); if (t - p.chatAt < 250) return; p.chatAt = t;
           p.react = p.react && p.react.e === m.emoji && t - p.react.at < REACT_MS ? null : { e: m.emoji, at: t };
+          if (p.react && p.rs && room.phase === 'playing') p.rs.reacts[m.emoji] = (p.rs.reacts[m.emoji] || 0) + 1;
           later(() => { if (rooms.has(room.code)) pushAll(room); }, REACT_MS + 50);
           return pushAll(room);
         }
@@ -757,6 +862,7 @@
           const up = !!m.up;
           if (!!p.hand === up) return;
           p.hand = up;
+          if (up && p.rs && room.phase === 'playing') { p.rs.hands++; p.rs.handUpAt = now(); } else if (!up) handDown(p, false);
           return pushAll(room);
         }
         case 'note': {

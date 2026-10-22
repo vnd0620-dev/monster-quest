@@ -108,6 +108,7 @@
       else if (phase === 'grouped' || phase === 'countdown') html = groupedView(st);
       else if (phase === 'playing') html = gameView(st);
       else if (reportWaiting(st)) html = reportWaitView(st);
+      else if (st.survey && !st.survey.done && !S.surveySent) html = surveyView(st);
       else html = endedView(st);
       main.innerHTML = html;
       if (focusId) { const el = main.querySelector('#' + focusId); if (el) { el.focus(); if (el.setSelectionRange && el.value) el.setSelectionRange(el.value.length, el.value.length); } }
@@ -390,6 +391,20 @@
         <p class="muted">오늘 푼 문제와 오답노트를 모아 나만의 리포트를 만들고 있어요. 잠시만 기다려 주세요.</p>
       </section>`;
     }
+    // 게임 끝 설문 (리포트를 보기 전에 한 번만)
+    const SURVEY_OPTS = [[2, '😀', '그렇다'], [1, '🙂', '조금 그렇다'], [0, '😐', '아니다']];
+    function surveyView(st) {
+      const a = S.survey || (S.survey = {});
+      const qs = st.survey.qs;
+      const all = qs.every(q => a[q.id] != null);
+      return topBar(st) + `<section class="s-card stack survey-card">
+        <h2>📝 오늘 게임은 어땠나요?</h2>
+        <p class="muted">정답은 없어요. 내 마음과 가장 가까운 것을 골라 주세요. 다 고르면 리포트를 볼 수 있어요.</p>
+        ${qs.map((q, i) => `<div class="sv-q" role="group" aria-label="${esc(q.text)}"><p><b>${i + 1}.</b> ${esc(q.text)}</p>
+          <div class="sv-opts">${SURVEY_OPTS.map(([v, e, l]) => `<button type="button" class="sv-opt ${a[q.id] === v ? 'sel' : ''}" data-act="sv-pick" data-q="${q.id}" data-v="${v}" aria-pressed="${a[q.id] === v}"><span aria-hidden="true">${e}</span>${l}</button>`).join('')}</div></div>`).join('')}
+        <button type="button" class="btn btn-gold btn-big" data-act="sv-send" ${all ? '' : 'disabled'}>${all ? '보내고 리포트 보기 →' : `${qs.filter(q => a[q.id] != null).length} / ${qs.length} 골랐어요`}</button>
+      </section>`;
+    }
     function endedView(st) {
       const r = st.result || {};
       return topBar(st) + `<section class="s-card s-end">
@@ -545,6 +560,8 @@
         case 'take': el.disabled = true; net.send({ t: 'take', kind: el.dataset.k }); break;
         case 'chat': net.send({ t: 'chat', emoji: el.dataset.e }); break;
         case 'hand': net.send({ t: 'hand', up: el.dataset.up === '1' }); break;
+        case 'sv-pick': (S.survey || (S.survey = {}))[el.dataset.q] = Number(el.dataset.v); render(); break;
+        case 'sv-send': if (st.survey && st.survey.qs.every(q => S.survey && S.survey[q.id] != null)) { S.surveySent = true; net.send({ t: 'survey', answers: S.survey }); render(); } break;
         case 'notes': S.notesOpen = true; S.notes = null; S.noteLast = null; renderNotes(); paintReadyBanner(st); net.send({ t: 'notes' }); break;
         case 'notes-close': S.notesOpen = false; $('.ov-notes').hidden = true; paintReadyBanner(S.st); break;
         case 'go-attack': closeShop(); S.notesOpen = false; $('.ov-notes').hidden = true; paintReadyBanner(S.st); break;

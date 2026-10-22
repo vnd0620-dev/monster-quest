@@ -796,3 +796,70 @@ test('레벨 테스트는 평가요소를 고르게 묻는다', () => {
   const areas = new Set(s.P(s.kids[0]).diag.qs.map(q => q.area));
   assert.equal(areas.size, 4);
 });
+
+test('협력 리포트: 힌트 주고받기·완료 격차·손들기·Freeze가 기록되고, 설문은 조건에 맞게 한 번만 받는다', () => {
+  const s = setup(2, { stages: 1 }); toPlaying(s, true);
+  const [a, b] = s.kids;
+  const pa = s.P(a), pb = s.P(b);
+  s.eng.handle(s.teacher, { t: 'tresearch' });
+  assert.equal(s.teacher.last('tresearch').empty, false);
+  // a가 다 풀고 힌트를 만듦
+  finishMine(s, a);
+  s.eng.handle(a, { t: 'twinpick', diff: 1 });
+  s.eng.handle(a, { t: 'twin', tid: pa.twin.id, text: pa.twin.answers[0] });
+  s.eng.handle(a, { t: 'hintpick', kind: 'concept' });
+  // b가 손들고, 선생님이 내려 주고, Freeze 10초
+  s.eng.handle(b, { t: 'hand', up: true }); s.clock.t += 5000;
+  s.eng.handle(s.teacher, { t: 'tlower', pid: pb.pid });
+  s.eng.handle(s.teacher, { t: 'tfreeze', on: true }); s.clock.t += 10000; s.eng.handle(s.teacher, { t: 'tfreeze', on: false });
+  // b가 2번 틀리고 친구 힌트를 받아 해결
+  wrong(s, b); wrong(s, b);
+  s.eng.handle(b, { t: 'take', kind: 'concept' });
+  assert.equal(cur(s, b).gifts.length, 1);
+  s.clock.t += 3000; right(s, b);
+  for (let i = 1; i < s.room.settings.perStage; i++) right(s, b);
+  s.eng.handle(a, { t: 'attack', stage: 1 }); s.flush();
+  assert.equal(s.room.groups[0].done, true);
+  s.eng.handle(s.teacher, { t: 'tresearch' });
+  const R = s.teacher.last('tresearch');
+  assert.equal(R.gifts.length, 1);
+  const gf = R.gifts[0];
+  assert.equal(gf.fromNum, 1); assert.equal(gf.toNum, 2); assert.match(gf.kind, /개념/); assert.equal(gf.solved, true);
+  assert.equal(gf.wrongAfter, 0);
+  assert.equal(R.summary.hintsMade, 1); assert.equal(R.summary.hintsUsed, 1); assert.equal(R.summary.hintSolvedRate, 100);
+  assert.equal(R.summary.hands, 1); assert.equal(R.summary.lowered, 1);
+  assert.equal(R.summary.freezes, 1); assert.equal(R.summary.frozenSec, 10);
+  assert.equal(R.summary.allSolveRate, 100);
+  assert.ok(R.groups[0].avgGapSec >= 18, '먼저 끝낸 a와 마지막 b 사이 시간');
+  const sa = R.students.find(x => x.num === 1), sb = R.students.find(x => x.num === 2);
+  assert.equal(sa.hintsMade, 1); assert.equal(sa.hintsUsedByFriends, 1);
+  assert.equal(sb.hintsGot, 1); assert.equal(sb.hintsGotSolved, 1); assert.equal(sb.wrong, 2);
+  assert.equal(sb.solved, s.room.settings.perStage); assert.equal(sb.firstTry, s.room.settings.perStage - 1);
+  // 설문: a는 힌트를 만들었으니 q2·q3, b는 힌트를 받았으니 q1
+  const qa = a.last('state').survey, qb = b.last('state').survey;
+  assert.deepEqual(qa.qs.map(q => q.id), ['q2', 'q3', 'q4', 'q5']);
+  assert.deepEqual(qb.qs.map(q => q.id), ['q1', 'q4', 'q5']);
+  s.eng.handle(b, { t: 'survey', answers: { q1: 2, q4: 1, q5: 2, q2: 9 } });
+  s.eng.handle(b, { t: 'survey', answers: { q1: 0, q4: 0, q5: 0 } });
+  assert.equal(b.last('state').survey.done, true);
+  s.eng.handle(s.teacher, { t: 'tresearch' });
+  const R2 = s.teacher.last('tresearch');
+  const sb2 = R2.students.find(x => x.num === 2);
+  assert.deepEqual(sb2.survey, { q1: 2, q2: null, q3: null, q4: 1, q5: 2 }, '처음 답만, 받지 않은 문항은 비움');
+  assert.equal(R2.survey.find(q => q.id === 'q1').yes, 1);
+  // 다시 하기로 대기실에 가도 지난 게임 리포트를 볼 수 있다
+  s.eng.handle(s.teacher, { t: 'tend' });
+  s.eng.handle(s.teacher, { t: 'treset' });
+  s.eng.handle(s.teacher, { t: 'tresearch' });
+  const R3 = s.teacher.last('tresearch');
+  assert.equal(R3.previous, true); assert.equal(R3.gifts.length, 1);
+});
+
+test('협력 리포트: 게임 중에도 모든 표 항목이 들어 있다', () => {
+  const s = setup(2); toPlaying(s, true);
+  s.eng.handle(s.teacher, { t: 'tresearch' });
+  const R = s.teacher.last('tresearch');
+  for (const k of ['meta', 'summary', 'bands', 'groups', 'students', 'gifts', 'survey', 'areaNames']) assert.ok(k in R, k);
+  assert.equal(R.bands.length, 2);
+  assert.equal(R.survey.length, 5);
+});

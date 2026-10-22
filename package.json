@@ -1,6 +1,6 @@
 {
   "name": "monster-quest",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "협동형 몬스터 퀴즈 — 교사·학생 화면 실시간 연동",
   "main": "server.js",
   "scripts": {
