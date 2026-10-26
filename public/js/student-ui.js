@@ -392,7 +392,7 @@
       </section>`;
     }
     // 게임 끝 설문 (리포트를 보기 전에 한 번만)
-    const SURVEY_OPTS = [[2, '😀', '그렇다'], [1, '🙂', '조금 그렇다'], [0, '😐', '아니다']];
+    const SURVEY_OPTS = [[2, '😀', '그렇다'], [1, '🙂', '보통이다'], [0, '😐', '아니다']];
     function surveyView(st) {
       const a = S.survey || (S.survey = {});
       const qs = st.survey.qs;

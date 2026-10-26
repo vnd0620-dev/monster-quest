@@ -463,7 +463,7 @@
           pid: p.pid, num: p.num, name: p.name, online: p.online, level: p.level || 0, group: p.group, react: reactOf(p), hand: !!p.hand,
           diag: p.diag ? { done: p.diag.done, ok: p.diag.ok, idx: p.diag.idx, total: p.diag.qs.length } : null,
           done: p.qi || 0, stageDone: !!p.stageDone, stuck: isStuck(p, c), twin: p.twin ? p.twin.state : null,
-          ok: p.stats.ok, wrong: p.stats.wrong, extra: p.stats.extra, hintsSent: p.stats.hintsSent, hintsGot: p.stats.hintsGot, points: p.points,
+          ok: p.stats.ok, wrong: p.stats.wrong, extra: p.stats.extra, hintsSent: p.stats.hintsSent, hintsGot: p.stats.hintsGot, hintsMade: madeCount(p), points: p.points,
           notes: p.notes.length, notesResolved: p.notes.filter(n => n.resolved).length,
           weak: areas.filter(a => a.cls === 'weak').map(a => a.name), review: areas.filter(a => a.cls === 'review').map(a => a.name),
           levels: Object.fromEntries(areas.map(a => [a.area, a.level])), topMistake: (areas.flatMap(a => a.mistakes).sort((m, n) => n.count - m.count)[0] || {}).name || '',

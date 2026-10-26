@@ -183,7 +183,7 @@
           <header><span class="g-mon">${monsterImg(g.monster, null, 'thumb')}</span><div class="grow"><h4>${esc(g.name)}</h4><p class="muted small">${mode === 'play' ? `스테이지 ${Math.min(g.stage, g.stages)}/${g.stages} · 처치 ${g.cleared} · 🎁 힌트 상자 ${g.box || 0}` : `${g.members.length}명`}</p></div>${badge}</header>
           ${mode === 'play' ? `<div class="hp small"><div class="hp-fill" style="width:${pct}%"></div><span>${g.hp} / ${g.hpMax}</span></div>` : ''}
           <ul class="mem">${g.members.map(m => { const p = pl.get(m.pid) || {}; const st = !m.online ? '⚪ 끊김' : mode !== 'play' ? '' : m.stageDone ? (m.twin === 'open' ? '⭐ 쌍둥이' : '✅ 완료') : m.stuck ? `🙋 ${m.done}/${m.per} 도움 필요` : `✏️ ${m.done}/${m.per}`;
-            return `<li class="${m.online ? '' : 'off'} ${m.stuck ? 'stuck' : ''}"><span aria-hidden="true">${hero(m.num)}</span><span class="n">${nameBtn(m, `${m.num}번 ${m.name}`)}</span>${lv(p.level)}<span class="s ${m.stageDone ? 'ok' : ''}">${st}</span>${mode === 'play' ? `<span class="c" title="맞힘·틀림·보낸 힌트">${p.ok || 0}·${p.wrong || 0}·🎁${p.hintsSent || 0}</span>` : ''}</li>`; }).join('')}</ul>
+            return `<li class="${m.online ? '' : 'off'} ${m.stuck ? 'stuck' : ''}"><span aria-hidden="true">${hero(m.num)}</span><span class="n">${nameBtn(m, `${m.num}번 ${m.name}`)}</span>${lv(p.level)}<span class="s ${m.stageDone ? 'ok' : ''}">${st}</span>${mode === 'play' ? `<span class="c" title="맞힘·틀림·만든 힌트">${p.ok || 0}·${p.wrong || 0}·🎁${p.hintsMade || 0}</span>` : ''}</li>`; }).join('')}</ul>
         </article>`;
       }).join('') || '<p class="empty">모둠이 아직 없어요.</p>'}</div>`;
     }
@@ -245,8 +245,7 @@
     // ───── 협력 리포트 (연구용) ─────
     const n = v => (v == null ? '-' : v);
     const pctTxt = v => (v == null ? '-' : v + '%');
-    const SV = ['아니다', '조금 그렇다', '그렇다'];
-    function renderResearch() {
+        function renderResearch() {
       const ov = $('.ov-research');
       if (!T.researchOpen) { ov.hidden = true; return; }
       const R = T.research;
@@ -259,8 +258,8 @@
         <div class="row"><h2 class="grow">📊 협력 리포트 ${R.previous ? '<span class="pill">지난 게임</span>' : M.ended ? '' : '<span class="pill">진행 중</span>'}</h2>
           <button type="button" class="btn btn-ghost sm" data-act="research-refresh">새로 고침</button><button type="button" class="btn btn-ghost sm" data-act="research-close">닫기 ✕</button></div>
         <p class="muted small">${esc(M.date.slice(0, 10))} · 방 ${esc(M.code)} · ${esc(M.unit)}${M.area !== '전체' ? ' · ' + esc(M.area) : ''} · 스테이지 ${M.stages} · 1인 ${M.perStage}문제 · 모둠 ${M.size}명 기준 · 게임 시간 ${M.minutes}분</p>
-        <section class="dl-box"><h3>⬇️ 엑셀 파일로 내려받기</h3><p class="small muted">엑셀에서 바로 열리는 파일(CSV)이에요. 수업마다 내려받아 모아 두면 보고서 자료가 돼요.</p>
-          <div class="row wrap">${[['summary', '요약·집단 비교·설문'], ['students', '학생별'], ['groups', '모둠별'], ['gifts', '힌트 주고받기']].map(([k, l]) => `<button type="button" class="btn btn-gold sm" data-act="csv" data-k="${k}">⬇️ ${l}</button>`).join('')}</div></section>
+        <section class="dl-box"><h3>⬇️ 엑셀 파일로 내려받기</h3><p class="small muted">엑셀 파일 1개에 요약 · 레벨 집단 비교 · 설문 · 모둠별 · 학생별 · 힌트 주고받기가 시트별로 들어 있어요. 수업마다 내려받아 모아 두면 보고서 자료가 돼요.</p>
+          <div class="row wrap"><button type="button" class="btn btn-gold" data-act="xlsx">⬇️ 학생 리포트 내려받기</button></div></section>
         <h3>한눈에 보기</h3>
         <div class="t-stats">${stat(pctTxt(S.allSolveRate), '전원 해결률', '모둠원 모두가 자기 문제를 해결해 합동 공격까지 간 스테이지의 비율')}${stat(pctTxt(S.solveRate), '평균 문제 해결률', '받은 문제 중 끝까지 해결한 비율의 평균')}${stat(`${S.hintsUsed}/${S.hintsMade}`, '쓰인 힌트/만든 힌트', '친구 힌트가 실제로 쓰인 수 / 만든 수')}${stat(pctTxt(S.hintSolvedRate), '친구 힌트 뒤 해결률', '친구 힌트를 쓴 문제를 결국 해결한 비율')}${stat(S.lowToHigh, '상위→하위 도움', '레벨 3~4 학생이 만든 힌트를 레벨 1~2 학생이 쓴 횟수')}${stat(n(S.avgGapSec) + '초', '평균 완료 격차', '모둠에서 첫 번째로 끝낸 학생과 마지막 학생 사이 시간의 평균')}${stat(S.hands, '손들기', '게임 중 손을 든 횟수 (선생님이 내려 준 횟수 ' + S.lowered + ')')}${stat(`${S.freezes}회 · ${S.frozenSec}초`, 'Freeze', '모두 멈춤 횟수와 멈춘 시간')}${stat(`${S.surveyDone}/${S.students}`, '설문 응답', '게임 끝 설문에 답한 학생 수')}</div>
         <h3>레벨 집단 비교 <span class="muted small">(레벨 테스트 기준)</span></h3>
@@ -268,20 +267,17 @@
         <h3>모둠별</h3>
         ${tbl(['모둠', '인원', '레벨 구성', '처치/스테이지', '전원 해결률', '스테이지 평균 시간(초)', '평균 완료 격차(초)', '만든 힌트', '쓰인 힌트', '힌트 뒤 해결'], R.groups.map(g => [esc(g.name), g.size, esc(g.levels), `${g.cleared}/${g.stages}`, pctTxt(g.allSolveRate), n(g.avgStageSec), n(g.avgGapSec), g.hintsMade, g.hintsUsed, g.hintsSolved]))}
         <h3>게임 끝 설문</h3>
-        ${tbl(['문항', '응답 수', '그렇다', '조금 그렇다', '아니다', '평균(0~2)'], R.survey.map(q => [esc(q.text), q.n, q.yes, q.some, q.no, n(q.avg)]))}
+        ${tbl(['문항', '응답 수', '그렇다', '보통이다', '아니다', '평균(0~2)'], R.survey.map(q => [esc(q.text), q.n, q.yes, q.some, q.no, n(q.avg)]))}
         <h3>학생별</h3>
         ${tbl(['번호', '이름', '모둠', '레벨', '해결/받은 문제', '해결률', '한 번에', '만든 힌트', '친구가 쓴 내 힌트', '받은 힌트(해결)', '손들기', '설문 1~5'], R.students.map(x => [x.num, esc(x.name), esc(x.group), x.level, `${x.solved}/${x.dealt}`, pctTxt(x.solveRate), pctTxt(x.firstTryRate), x.hintsMade, x.hintsUsedByFriends, `${x.hintsGot}(${x.hintsGotSolved})`, x.hands, ['q1', 'q2', 'q3', 'q4', 'q5'].map(k => x.survey[k] == null ? '·' : x.survey[k]).join(' ')]))}
         <h3>힌트 주고받기 <span class="muted small">(누가 만든 힌트를 누가 썼는지)</span></h3>
         ${tbl(['시작 후(분)', '스테이지', '모둠', '만든 학생(레벨)', '쓴 학생(레벨)', '힌트 종류', '평가 요소', '결국 해결', '힌트 뒤 더 틀림'], R.gifts.slice(0, 80).map(e => [e.min, e.stage, esc(e.group), `${e.fromNum}번 ${esc(e.fromName || '')} (${e.fromLevel})`, `${e.toNum}번 ${esc(e.toName || '')} (${e.toLevel})`, esc(e.kind), esc(e.area), e.solved ? '⭕' : '❌', n(e.wrongAfter)]))}
         ${R.gifts.length > 80 ? `<p class="muted small">화면에는 80개까지만 보여요. 전체 ${R.gifts.length}개는 파일에 모두 들어 있어요.</p>` : ''}
-        <p class="muted small">레벨 1~2를 하위 집단, 3~4를 상위 집단으로 나눴어요(레벨 테스트 ${esc(String(T.ts ? T.ts.settings.diag : ''))}문항 기준). 설문 점수는 그렇다 2 · 조금 그렇다 1 · 아니다 0이에요.</p>
+        <p class="muted small">레벨 1~2를 하위 집단, 3~4를 상위 집단으로 나눴어요(레벨 테스트 ${esc(String(T.ts ? T.ts.settings.diag : ''))}문항 기준). 설문 점수는 그렇다 2 · 보통이다 1 · 아니다 0이에요.</p>
       </div>`;
       ov.hidden = false;
     }
-    // 엑셀에서 한글이 깨지지 않게 BOM을 붙인 CSV
-    const csvCell = v => { const t = v == null ? '' : String(v); return /[",\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
-    const csvText = rows => '\ufeff' + rows.map(r => r.map(csvCell).join(',')).join('\r\n');
-    function csvRows(k, R) {
+    function sheetRows(k, R) {
       const M = R.meta, S = R.summary, sv = x => (x == null ? '' : x);
       if (k === 'summary') return [
         ['항목', '값', '설명'], ['날짜', M.date.slice(0, 10), ''], ['방 번호', M.code, ''], ['단원', M.unit, ''], ['평가 요소', M.area, ''], ['스테이지 수', M.stages, ''], ['1인 문제 수', M.perStage, ''], ['모둠 인원 설정', M.size, ''], ['게임 시간(분)', M.minutes, ''],
@@ -289,9 +285,13 @@
         ['평균 문제 해결률(%)', sv(S.solveRate), '받은 문제 중 끝까지 해결한 비율의 평균'], ['만든 힌트 수', S.hintsMade, ''], ['쓰인 힌트 수', S.hintsUsed, ''], ['힌트 사용률(%)', sv(S.hintUseRate), '쓰인 힌트 ÷ 만든 힌트'],
         ['친구 힌트 뒤 해결률(%)', sv(S.hintSolvedRate), '친구 힌트를 쓴 문제를 결국 해결한 비율'], ['상위→하위 도움 횟수', S.lowToHigh, '레벨 3~4가 만든 힌트를 레벨 1~2가 쓴 횟수'], ['평균 완료 격차(초)', sv(S.avgGapSec), '모둠 안 첫 완료자와 마지막 완료자 사이 시간'],
         ['손들기 횟수', S.hands, ''], ['선생님이 손 내려 준 횟수', S.lowered, ''], ['Freeze 횟수', S.freezes, ''], ['Freeze 시간(초)', S.frozenSec, ''], ['설문 응답 학생 수', S.surveyDone, ''],
-        [], ['레벨 집단 비교', '학생 수', '문제 해결률(%)', '한 번에 맞힌 비율(%)', '만든 힌트(평균)', '받은 힌트(평균)', '손들기(평균)', '설문4 평균(0~2)', '설문5 평균(0~2)'],
+      ];
+      if (k === 'bands') return [
+        ['집단', '학생 수', '문제 해결률(%)', '한 번에 맞힌 비율(%)', '만든 힌트(평균)', '받은 힌트(평균)', '손들기(평균)', '설문4 평균(0~2)', '설문5 평균(0~2)'],
         ...R.bands.map(b => [b.label, b.n, sv(b.solveRate), sv(b.firstTryRate), sv(b.hintsMade), sv(b.hintsGot), sv(b.hands), sv(b.q4), sv(b.q5)]),
-        [], ['설문 문항', '응답 수', '그렇다(2)', '조금 그렇다(1)', '아니다(0)', '평균(0~2)'], ...R.survey.map(q => [q.id + '. ' + q.text, q.n, q.yes, q.some, q.no, sv(q.avg)]),
+      ];
+      if (k === 'survey') return [
+        ['설문 문항', '응답 수', '그렇다(2)', '보통이다(1)', '아니다(0)', '평균(0~2)'], ...R.survey.map(q => [q.id + '. ' + q.text, q.n, q.yes, q.some, q.no, sv(q.avg)]),
       ];
       if (k === 'students') return [
         ['번호', '이름', '모둠', '레벨', '집단', '받은 문제', '해결한 문제', '해결률(%)', '한 번에 맞힌 문제', '한 번에 맞힌 비율(%)', '틀린 횟수', '추가 문제 해결', '만든 힌트', '친구가 쓴 내 힌트', '받은 힌트', '받은 힌트 뒤 해결', '손들기', '손든 시간(초)', '선생님이 손 내려 줌', '반응 이모지', '오답노트', '오답노트 해결', ...R.areaNames.map(a => '수준: ' + a), '설문1', '설문2', '설문3', '설문4', '설문5'],
@@ -306,18 +306,61 @@
         ...R.gifts.map(e => [e.min, e.stage, e.group, e.fromNum, e.fromName, e.fromLevel, e.toNum, e.toName, e.toLevel, e.kind, e.area, e.solved ? '예' : '아니요', sv(e.wrongAfter), sv(e.solvedSec)]),
       ];
     }
-    function downloadCsv(k) {
+    const SHEETS = [['summary', '요약'], ['bands', '레벨 집단 비교'], ['survey', '설문'], ['groups', '모둠별'], ['students', '학생별'], ['gifts', '힌트 주고받기']];
+    // 엑셀(.xlsx) 파일을 직접 만듭니다: 시트 여러 개, 숫자는 숫자로, 첫 줄은 굵게
+    const xmlEsc = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '');
+    const colName = i => { let s = ''; for (i++; i > 0; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + (i - 1) % 26) + s; return s; };
+    function sheetXml(rows) {
+      const w = [];
+      rows.forEach(r => r.forEach((v, c) => { const len = v == null ? 0 : [...String(v)].reduce((a, ch) => a + (ch.charCodeAt(0) > 255 ? 2 : 1), 0); w[c] = Math.min(60, Math.max(w[c] || 8, len + 2)); }));
+      const cols = w.length ? `<cols>${w.map((x, i) => `<col min="${i + 1}" max="${i + 1}" width="${x}" customWidth="1"/>`).join('')}</cols>` : '';
+      const data = rows.map((r, ri) => `<row r="${ri + 1}">${r.map((v, c) => {
+        if (v == null || v === '') return '';
+        const ref = colName(c) + (ri + 1), st = ri === 0 ? ' s="1"' : '';
+        return typeof v === 'number' && isFinite(v) ? `<c r="${ref}"${st}><v>${v}</v></c>` : `<c r="${ref}"${st} t="inlineStr"><is><t xml:space="preserve">${xmlEsc(v)}</t></is></c>`;
+      }).join('')}</row>`).join('');
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>${cols}<sheetData>${data}</sheetData></worksheet>`;
+    }
+    function xlsxFiles(R) {
+      const sh = SHEETS.map(([k, name]) => ({ name, xml: sheetXml(sheetRows(k, R)) }));
+      const NS = 'http://schemas.openxmlformats.org', X = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+      return [
+        ['[Content_Types].xml', `${X}<Types xmlns="${NS}/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sh.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`],
+        ['_rels/.rels', `${X}<Relationships xmlns="${NS}/package/2006/relationships"><Relationship Id="rId1" Type="${NS}/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+        ['xl/workbook.xml', `${X}<workbook xmlns="${NS}/spreadsheetml/2006/main" xmlns:r="${NS}/officeDocument/2006/relationships"><sheets>${sh.map((s, i) => `<sheet name="${xmlEsc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>`],
+        ['xl/_rels/workbook.xml.rels', `${X}<Relationships xmlns="${NS}/package/2006/relationships">${sh.map((_, i) => `<Relationship Id="rId${i + 1}" Type="${NS}/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}<Relationship Id="rId${sh.length + 1}" Type="${NS}/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
+        ['xl/styles.xml', `${X}<styleSheet xmlns="${NS}/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="맑은 고딕"/></font><font><b/><sz val="11"/><name val="맑은 고딕"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`],
+        ...sh.map((s, i) => [`xl/worksheets/sheet${i + 1}.xml`, s.xml]),
+      ];
+    }
+    // 압축 없이(store) 묶는 zip — .xlsx는 zip 파일이에요
+    const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+    const crc32 = b => { let c = 0xffffffff; for (let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+    function zipStore(files) {
+      const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+      const u16 = v => [v & 255, (v >>> 8) & 255], u32 = v => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
+      for (const [name, text] of files) {
+        const nb = enc.encode(name), db = enc.encode(text), crc = crc32(db);
+        const head = [...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(db.length), ...u32(db.length), ...u16(nb.length), ...u16(0)];
+        const local = new Uint8Array([...u32(0x04034b50), ...head]);
+        parts.push(local, nb, db);
+        central.push(new Uint8Array([...u32(0x02014b50), ...u16(20), ...head, ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off)]), nb);
+        off += local.length + nb.length + db.length;
+      }
+      const csize = central.reduce((a, b) => a + b.length, 0);
+      const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(csize), ...u32(off), ...u16(0)]);
+      return new Blob([...parts, ...central, end], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    }
+    function downloadXlsx() {
       const R = T.research; if (!R || R.empty) return;
-      const name = { summary: '요약', students: '학생별', groups: '모둠별', gifts: '힌트주고받기' }[k];
-      const file = `협력리포트_${R.meta.date.slice(0, 10)}_방${R.meta.code}_${name}.csv`;
-      const blob = new Blob([csvText(csvRows(k, R))], { type: 'text/csv;charset=utf-8' });
+      const file = `협력리포트_${R.meta.date.slice(0, 10)}_방${R.meta.code}.xlsx`;
       try {
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file;
+        const a = document.createElement('a'); a.href = URL.createObjectURL(zipStore(xlsxFiles(R))); a.download = file;
         document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
         toast($('.toasts'), `⬇️ ${file} 을(를) 내려받았어요.`);
       } catch (e) { toast($('.toasts'), '이 화면에서는 내려받기가 막혀 있어요. 실제 서버 주소에서 내려받아 주세요.'); }
     }
-    window.__mqCsv = { csvRows, csvText }; // 자동 검사용
+    window.__mqXlsx = { sheetRows, xlsxFiles, zipStore }; // 자동 검사용
 
     function renderDetail() {
       const d = T.detail, ov = $('.ov-detail');
@@ -375,7 +418,7 @@
         case 'research': T.research = null; T.researchOpen = true; renderResearch(); net.send({ t: 'tresearch' }); break;
         case 'research-close': T.researchOpen = false; $('.ov-research').hidden = true; break;
         case 'research-refresh': net.send({ t: 'tresearch' }); break;
-        case 'csv': downloadCsv(el.dataset.k); break;
+        case 'xlsx': downloadXlsx(); break;
         case 'copy': {
           const fixed = el.dataset.which === 'fixed', t = (joinInfo() || {})[fixed ? 'fixed' : 'url']; if (!t) return;
           const fallback = () => { const r = document.createRange(); r.selectNodeContents($(fixed ? '#t-fixed' : '#t-url')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast($('.toasts'), '링크를 선택했어요. Ctrl+C로 복사해 주세요.'); };

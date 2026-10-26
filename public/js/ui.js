@@ -71,6 +71,14 @@
     const crit = teacher
       ? `<table class="crit"><tbody>${['high', 'mid', 'low'].map(k => `<tr class="${a.level === k ? 'on' : ''}"><th>${LV_TEACHER[k][1]}</th><td>${esc(a.criteria[k])}</td></tr>`).join('')}</tbody></table>`
       : a.level === 'na' ? `<p class="crit-now"><b>목표</b> ${esc(a.criteria.high)}</p>` : `<p class="crit-now"><b>지금 나의 모습</b> ${esc(a.criterion)}</p>`;
+    if (!teacher) return `<article class="area-card stu lv-${a.level}"><header>${lvBadge(a.level)}<h4>${esc(a.name)}</h4></header>
+      <p class="concept big">📗 <b>개념 정리</b> ${math(a.concept)}</p>
+      ${crit}
+      ${mistakes}
+      <p class="tip"><b>다음에 해 볼 것</b> ${esc(a.studentTip)}</p>
+      <div class="card-extra">${a.level === 'na' ? '<p class="small muted">이 영역은 푼 문제가 적어서 수준을 정하지 않았어요.</p>' : ''}
+      ${a.needHard ? '<p class="small hard">⭐ 도전(상) 문제를 한 번에 풀면 한 단계 더 올라갈 수 있어요!</p>' : ''}</div>
+      <p class="evid">${evidence}</p></article>`;
     return `<article class="area-card lv-${a.level}"><header>${lvBadge(a.level, teacher)}<h4>${esc(a.name)}</h4>${teacher ? `<span class="std-code">${esc(a.std)}</span>` : ''}</header>
       ${crit}
       <p class="evid">${evidence}</p>

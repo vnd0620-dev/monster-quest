@@ -562,7 +562,7 @@ h1, h2, h3, h4 { font-family: var(--display); font-weight: 400; text-wrap: balan
 /* 교사: 학생 상세 */
 .name-btn { cursor: pointer; background: none; border: 0; padding: 0; color: inherit; font: inherit; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
 .name-btn:hover { color: var(--gold); text-decoration-color: var(--gold); }
-.ov-detail { position: fixed; background: rgba(10, 6, 30, .92); z-index: 96; overflow-y: auto; }
+.ov-detail, .ov-research { position: fixed; background: rgba(10, 6, 30, .92); z-index: 96; overflow-y: auto; }
 .detail-box { max-width: 1040px; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 18px; display: grid; gap: 12px; text-align: left; position: relative; top: auto; margin: 3vh auto; }
 .detail-box h3 { font-size: 19px; margin-top: 6px; }
 .cur-box { background: var(--deep); border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: grid; gap: 4px; }
@@ -633,3 +633,16 @@ h1, h2, h3, h4 { font-family: var(--display); font-weight: 400; text-wrap: balan
 .dl-box { background: var(--deep); border-radius: 14px; padding: 12px 14px; display: grid; gap: 8px; }
 .dl-box h3 { margin: 0; }
 .dl-box p { margin: 0; }
+
+/* v0.13.1 학생 학습 리포트: 칸마다 한 줄씩 가로로 길게 (수준 → 영역 → 개념 정리 → 지금 나의 모습 → 실수 → 다음에 해 볼 것) */
+@media (min-width: 0px) {
+  .area-card.stu { grid-template-columns: minmax(0, 1fr); grid-template-areas: none; }
+  .area-card.stu > * { grid-area: auto; }
+}
+.area-card.stu header { grid-template-columns: minmax(0, 1fr); }
+.area-card.stu .concept.big { font-size: 20px; line-height: 1.6; color: var(--fg); background: var(--deep); border-radius: 12px; padding: 12px 14px; margin: 0; }
+.area-card.stu .concept.big b { color: var(--gold); margin-right: 6px; }
+.area-card.stu .crit-now { margin: 0; }
+.area-card.stu .tip { margin: 0; }
+.area-card.stu .evid { margin: 0; font-size: 14px; }
+@media (max-width: 480px) { .area-card.stu .concept.big { font-size: 18px; } }
