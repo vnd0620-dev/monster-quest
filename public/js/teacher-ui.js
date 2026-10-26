@@ -142,6 +142,18 @@
       </aside>`;
     }
 
+    // 손든 학생 모아 보기 (디자인 ②): 게임 중에만, 이름 옆에서 바로 손 내리기
+    function handsCard(ts) {
+      if (ts.phase !== 'playing' && ts.phase !== 'diag') return '';
+      const name = gid => ((ts.groups || []).find(g => g.id === gid) || {}).name || '';
+      const up = ts.players.filter(p => p.hand);
+      const stuck = (ts.groups || []).reduce((a, g) => a + g.members.filter(m => m.stuck).length, 0);
+      return `<section class="t-card t-hands" aria-label="손든 학생"><h3>✋ 손든 학생 <span class="muted small">${up.length}명</span></h3>
+        ${up.length ? `<ul>${up.map(p => `<li><span>${esc(p.num + '번 ' + p.name)}<small>${esc(name(p.group))}</small></span><button type="button" class="btn btn-gold sm" data-act="lower" data-pid="${esc(p.pid)}">손 내리기</button></li>`).join('')}</ul>` : '<p class="muted small">지금 손든 학생이 없어요.</p>'}
+        ${ts.phase === 'playing' ? `<p class="muted small">도움이 필요한 학생 <b>${stuck}</b>명 · 이름을 누르면 자세히 봐요</p>` : ''}
+      </section>`;
+    }
+
     // ───── 진행 버튼 ─────
     const researchBtn = (label, main) => `<button type="button" class="btn ${main ? 'btn-violet' : 'btn-ghost sm'}" data-act="research">📊 ${label}</button>`;
     function controls(ts) {
@@ -156,7 +168,7 @@
         case 'diag': return `<b>레벨 테스트 ${done} / ${on}명 완료</b><button type="button" class="btn btn-ghost" data-act="group">모둠 바로 편성</button>${freeze}`;
         case 'grouped': return `<button type="button" class="btn btn-gold btn-big" data-act="start">▶ 게임 시작 (3·2·1)</button>${freeze}`;
         case 'countdown': return `<b>3, 2, 1… 곧 시작해요!</b>`;
-        case 'playing': return `${freeze}<button type="button" class="btn btn-danger" data-act="ask-end">🏁 게임 끝내기</button>${researchBtn('지금까지 협력 리포트')}<span class="muted small">모든 모둠이 최종 보스를 물리치면 자동으로 끝나요</span>`;
+        case 'playing': return `${freeze}<button type="button" class="btn btn-danger" data-act="ask-end">🏁 게임 끝내기</button>${ts.players.some(p => p.bot) ? '<button type="button" class="btn btn-ghost sm" data-act="botsdone" title="가상 친구만 이번 스테이지 내 문제를 바로 모두 풀어요">🤖 가상 친구 모두 완료</button>' : ''}${researchBtn('지금까지 협력 리포트')}<span class="muted small">모든 모둠이 최종 보스를 물리치면 자동으로 끝나요</span>`;
         default: return `${researchBtn('협력 리포트 보기·내려받기', true)}<button type="button" class="btn btn-gold" data-act="reset">🔄 같은 학생들과 다시 하기</button><span class="muted">다시 하기 전에 협력 리포트를 내려받아 두세요</span>`;
       }
     }
@@ -233,7 +245,7 @@
           : ts.phase === 'diag' ? diagHtml(ts)
             : ts.phase === 'grouped' || ts.phase === 'countdown' ? `<div class="panel-head"><h3>🛡️ 모둠 구성 (레벨을 고르게 섞었어요)</h3>${ts.phase === 'grouped' ? '<button type="button" class="btn btn-ghost sm" data-act="shuffle">🔀 모둠 다시 섞기</button>' : ''}</div>${groupCards(ts, 'group')}`
               : ts.phase === 'playing' ? playHtml(ts) : endHtml(ts);
-        body.innerHTML = `${frozenBar}<div class="t-grid">${qrCard()}<div class="t-col">
+        body.innerHTML = `${frozenBar}<div class="t-grid"><div class="t-side">${qrCard()}${handsCard(ts)}</div><div class="t-col">
           <section class="t-card t-ctl">${controls(ts)}</section>
           <section class="t-card t-main">${mainHtml}</section>
           <details class="t-card t-set" ${ts.phase === 'lobby' ? 'open' : ''}><summary>⚙️ 게임 설정 · ${esc(valueOf(ts.settings, 'unit'))} · ${esc(valueOf(ts.settings, 'diff'))} · 스테이지 ${ts.settings.stages} · ${ts.settings.size}명 모둠</summary>${settingsHtml(ts.settings, ts.phase !== 'lobby')}</details>
@@ -263,7 +275,7 @@
         <h3>한눈에 보기</h3>
         <div class="t-stats">${stat(pctTxt(S.allSolveRate), '전원 해결률', '모둠원 모두가 자기 문제를 해결해 합동 공격까지 간 스테이지의 비율')}${stat(pctTxt(S.solveRate), '평균 문제 해결률', '받은 문제 중 끝까지 해결한 비율의 평균')}${stat(`${S.hintsUsed}/${S.hintsMade}`, '쓰인 힌트/만든 힌트', '친구 힌트가 실제로 쓰인 수 / 만든 수')}${stat(pctTxt(S.hintSolvedRate), '친구 힌트 뒤 해결률', '친구 힌트를 쓴 문제를 결국 해결한 비율')}${stat(S.lowToHigh, '상위→하위 도움', '레벨 3~4 학생이 만든 힌트를 레벨 1~2 학생이 쓴 횟수')}${stat(n(S.avgGapSec) + '초', '평균 완료 격차', '모둠에서 첫 번째로 끝낸 학생과 마지막 학생 사이 시간의 평균')}${stat(S.hands, '손들기', '게임 중 손을 든 횟수 (선생님이 내려 준 횟수 ' + S.lowered + ')')}${stat(`${S.freezes}회 · ${S.frozenSec}초`, 'Freeze', '모두 멈춤 횟수와 멈춘 시간')}${stat(`${S.surveyDone}/${S.students}`, '설문 응답', '게임 끝 설문에 답한 학생 수')}</div>
         <h3>레벨 집단 비교 <span class="muted small">(레벨 테스트 기준)</span></h3>
-        ${tbl(['집단', '학생 수', '문제 해결률', '한 번에 맞힌 비율', '만든 힌트(평균)', '받은 힌트(평균)', '손들기(평균)', '설문4 필요한 사람(0~2)', '설문5 협력(0~2)'], R.bands.map(b => [esc(b.label), b.n, pctTxt(b.solveRate), pctTxt(b.firstTryRate), n(b.hintsMade), n(b.hintsGot), n(b.hands), n(b.q4), n(b.q5)]))}
+        ${tbl(['집단', '학생 수', '문제 해결률', '한 번에 맞힌 비율', '만든 힌트(평균)', '받은 힌트(평균)', '손들기(평균)', '설문4 끝까지 함께함(0~2)', '설문5 협력(0~2)'], R.bands.map(b => [esc(b.label), b.n, pctTxt(b.solveRate), pctTxt(b.firstTryRate), n(b.hintsMade), n(b.hintsGot), n(b.hands), n(b.q4), n(b.q5)]))}
         <h3>모둠별</h3>
         ${tbl(['모둠', '인원(실제)', '가상 친구', '레벨 구성', '처치/스테이지', '전원 해결률', '스테이지 평균 시간(초)', '평균 완료 격차(초)', '만든 힌트', '쓰인 힌트', '힌트 뒤 해결'], R.groups.map(g => [esc(g.name), g.size, g.bots || 0, esc(g.levels), `${g.cleared}/${g.stages}`, pctTxt(g.allSolveRate), n(g.avgStageSec), n(g.avgGapSec), g.hintsMade, g.hintsUsed, g.hintsSolved]))}
         <h3>게임 끝 설문</h3>
@@ -287,7 +299,7 @@
         ['손들기 횟수', S.hands, ''], ['선생님이 손 내려 준 횟수', S.lowered, ''], ['Freeze 횟수', S.freezes, ''], ['Freeze 시간(초)', S.frozenSec, ''], ['설문 응답 학생 수', S.surveyDone, ''],
       ];
       if (k === 'bands') return [
-        ['집단', '학생 수', '문제 해결률(%)', '한 번에 맞힌 비율(%)', '만든 힌트(평균)', '받은 힌트(평균)', '손들기(평균)', '설문4 평균(0~2)', '설문5 평균(0~2)'],
+        ['집단', '학생 수', '문제 해결률(%)', '한 번에 맞힌 비율(%)', '만든 힌트(평균)', '받은 힌트(평균)', '손들기(평균)', '설문4 끝까지 함께함 평균(0~2)', '설문5 평균(0~2)'],
         ...R.bands.map(b => [b.label, b.n, sv(b.solveRate), sv(b.firstTryRate), sv(b.hintsMade), sv(b.hintsGot), sv(b.hands), sv(b.q4), sv(b.q5)]),
       ];
       if (k === 'survey') return [
@@ -420,6 +432,7 @@
         case 'research-close': T.researchOpen = false; $('.ov-research').hidden = true; break;
         case 'research-refresh': net.send({ t: 'tresearch' }); break;
         case 'xlsx': downloadXlsx(); break;
+        case 'botsdone': net.send({ t: 'tbotsdone' }); break;
         case 'bots': { const v = Math.round(Number(($('#t-bot-n') || {}).value)); if (v >= 1) { T.botN = Math.min(30, v); net.send({ t: 'tbots', n: T.botN }); toast($('.toasts'), `🤖 가상 친구 ${T.botN}명을 넣었어요. 레벨 테스트부터 스스로 풀어요. (협력 리포트에는 들어가지 않아요)`); } break; }
         case 'copy': {
           const fixed = el.dataset.which === 'fixed', t = (joinInfo() || {})[fixed ? 'fixed' : 'url']; if (!t) return;

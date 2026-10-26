@@ -50,6 +50,8 @@
     { id: 'h_cap', slot: 'hat', name: '야구 모자', price: 20, icon: '🧢' }, { id: 'h_helmet', slot: 'hat', name: '탐험 헬멧', price: 30, icon: '⛑️' },
     { id: 'h_grad', slot: 'hat', name: '박사 모자', price: 40, icon: '🎓' }, { id: 'h_top', slot: 'hat', name: '신사 모자', price: 60, icon: '🎩' }, { id: 'h_crown', slot: 'hat', name: '황금 왕관', price: 120, icon: '👑' },
     { id: 'g_read', slot: 'glasses', name: '동그란 안경', price: 20, icon: '👓' }, { id: 'g_sun', slot: 'glasses', name: '멋쟁이 선글라스', price: 35, icon: '🕶️' }, { id: 'g_goggle', slot: 'glasses', name: '탐험 고글', price: 50, icon: '🥽' },
+    { id: 'g_heart', slot: 'glasses', name: '하트 선글라스', price: 45, icon: '💗' }, { id: 'g_star', slot: 'glasses', name: '반짝 별 안경', price: 55, icon: '⭐' }, { id: 'g_3d', slot: 'glasses', name: '3D 안경', price: 40, icon: '🔴' },
+    { id: 'g_rainbow', slot: 'glasses', name: '무지개 안경', price: 65, icon: '🌈' }, { id: 'g_party', slot: 'glasses', name: '파티 고양이 안경', price: 75, icon: '🎉' },
     { id: 'w_book', slot: 'weapon', name: '마법 책', price: 25, icon: '📖' }, { id: 'w_wand', slot: 'weapon', name: '별 지팡이', price: 60, icon: '🪄' },
     { id: 'w_sword', slot: 'weapon', name: '용사의 검', price: 70, icon: '🗡️' }, { id: 'w_shield', slot: 'weapon', name: '튼튼한 방패', price: 70, icon: '🛡️' },
     { id: 'p_chick', slot: 'pet', name: '병아리', price: 40, icon: '🐥' }, { id: 'p_dog', slot: 'pet', name: '강아지', price: 50, icon: '🐶' },
@@ -468,7 +470,7 @@
         const c = curOf(p);
         const areas = room.phase === 'ended' ? areaSummary(room, p) : [];
         return {
-          pid: p.pid, num: p.num, name: p.name, online: p.online, level: p.level || 0, group: p.group, react: reactOf(p), hand: !!p.hand,
+          pid: p.pid, num: p.num, name: p.name, online: p.online, level: p.level || 0, group: p.group, react: reactOf(p), hand: !!p.hand, bot: !!p.bot,
           diag: p.diag ? { done: p.diag.done, ok: p.diag.ok, idx: p.diag.idx, total: p.diag.qs.length } : null,
           done: p.qi || 0, stageDone: !!p.stageDone, stuck: isStuck(p, c), twin: p.twin ? p.twin.state : null,
           ok: p.stats.ok, wrong: p.stats.wrong, extra: p.stats.extra, hintsSent: p.stats.hintsSent, hintsGot: p.stats.hintsGot, hintsMade: madeCount(p), points: p.points,
@@ -577,7 +579,7 @@
       q1: '친구가 만든 힌트가 문제를 푸는 데 도움이 되었나요?',
       q2: '내가 만든 힌트가 친구에게 도움이 되었을 것 같나요?',
       q3: '친구를 위해 추가 문제를 풀며 힌트를 만드는 것이 나에게도 공부가 되었나요?',
-      q4: '오늘 게임에서 나도 모둠에 꼭 필요한 사람이라고 느꼈나요?',
+      q4: '모둠 친구들과 끝까지 함께 게임했다고 느꼈나요?',
       q5: '몬스터를 모둠이 함께 물리치는 방식이 친구와 협력하게 만들었나요?',
     };
     const madeCount = p => Object.values(p.made || {}).reduce((a, b) => a + b, 0);
@@ -723,6 +725,17 @@
             return endGame(room);
           case 'treset':
             resetToLobby(room); return pushAll(room);
+          case 'tbotsdone': { // 가상 친구는 이번 스테이지 내 문제를 바로 모두 풀어 완료로
+            if (room.phase !== 'playing' || room.frozen) return;
+            let n = 0;
+            for (const p of [...room.players.values()]) {
+              if (!p.bot || !p.conn) continue;
+              for (let k = 0; k < 40 && !p.stageDone; k++) { const c = curOf(p); if (!c) break; handle(p.conn, { t: 'answer', qid: c.id, choice: c.answer }); }
+              if (p.stageDone) n++;
+            }
+            if (room.tconn) send(room.tconn, { t: 'toast', msg: `🤖 가상 친구 ${n}명이 이번 스테이지 문제를 모두 풀었어요.` });
+            return pushAll(room);
+          }
           case 'tbots': {
             if (room.phase !== 'lobby') return;
             const n = intIn(m.n, 1, 30);
@@ -928,7 +941,9 @@
     // ───── 가상 친구 (선생님 대기실에서 넣기) ─────
     // 레벨이 고르게 나오도록 정답률을 돌아가며 정하고, 한 문제에 걸리는 시간도 실제 학생과 비슷하게(약 15~35초) 맞춰요.
     const BOT_NAMES = ['별이', '솔이', '콩이', '달이', '구름', '보리', '하늘', '바다', '단비', '새봄', '나래', '미르', '가람', '누리', '다온', '라온', '여름', '이슬', '한울', '해솔', '초롱', '아라', '도담', '봄이', '빛나', '슬기', '온새', '하랑', '예솔', '푸름'];
-    const BOT_KIND = [{ acc: 0.5, sec: 34 }, { acc: 0.68, sec: 27 }, { acc: 0.84, sec: 21 }, { acc: 0.95, sec: 16 }];
+    const BOT_KIND = [{ acc: 0.5, sec: 34 }, { acc: 0.68, sec: 27 }, { acc: 0.84, sec: 21 }, { acc: 0.95, sec: 16 }]; // 레벨 테스트 전(정답률로 레벨이 고르게 나오게)
+    // 게임 중에는 레벨 테스트로 정해진 실제 레벨에 맞춰 풀어요: 레벨이 높을수록 빠르고 정확하게 (한 번 답하는 데 평균 초)
+    const BOT_LV = { 1: { acc: 0.55, sec: 20 }, 2: { acc: 0.7, sec: 14 }, 3: { acc: 0.85, sec: 10 }, 4: { acc: 0.95, sec: 7 } };
     function addBots(room, n) {
       const all = () => [...room.players.values()];
       let made = all().filter(p => p.bot).length;
@@ -947,7 +962,7 @@
         if (room.frozen || (room.phase !== 'diag' && room.phase !== 'playing')) continue;
         for (const p of [...room.players.values()]) {
           if (!p.bot || !p.conn || !p.online) continue;
-          const b = p.bot, conn = p.conn, chance = x => rand() < x;
+          const conn = p.conn, chance = x => rand() < x, b = room.phase === 'playing' ? (BOT_LV[p.level] || p.bot) : p.bot;
           if (room.phase === 'diag') {
             if (p.diag && !p.diag.done && chance(1 / 10)) { const q = p.diag.qs[p.diag.idx]; handle(conn, { t: 'answer', qid: q.id, choice: chance(b.acc) ? q.answer : (q.answer + 1) % 4 }); }
             continue;

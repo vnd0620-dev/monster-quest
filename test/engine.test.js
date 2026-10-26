@@ -937,3 +937,39 @@ test('가상 친구: 대기실에서만 넣을 수 있고, 레벨이 고르게 �
   assert.ok(R.gifts.every(e => e.toNum === 1), '가상 친구가 받은 힌트는 빠짐');
   assert.ok(R.groups.reduce((a, g) => a + g.bots, 0) === 5);
 });
+
+test('가상 친구: 게임 중에는 실제 레벨에 맞춰 풀고(레벨 4가 가장 빠름), 선생님이 이번 스테이지를 한 번에 완료시킬 수 있다', () => {
+  // 우연에 따라 결과가 흔들리지 않게, 정해진 난수로 가상 친구 16명을 돌려 레벨별 평균을 비교
+  let seed = 12345; const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+  const pending = [], clock = { t: 1e12 };
+  const eng = createEngine({ setTimeout: f => pending.push(f), now: () => clock.t, stuckMs: 60000, random: rnd });
+  const T = fakeConn(); eng.handle(T, { t: 'tcreate', settings: { size: 4, stages: 2, perStage: 3, diag: 4 } });
+  const room = eng.rooms.get(T.last('troom').code), fl = () => { while (pending.length) pending.shift()(); };
+  eng.handle(T, { t: 'tbots', n: 16 }); eng.handle(T, { t: 'tdiag' }); fl();
+  const tick = () => { clock.t += 1000; eng.botTick(); fl(); };
+  for (let i = 0; i < 900 && room.phase === 'diag'; i++) tick();
+  eng.handle(T, { t: 'tstart' }); fl();
+  const bots = [...room.players.values()];
+  const doneAt = new Map();
+  for (let i = 1; i <= 600 && doneAt.size < bots.length; i++) { tick(); for (const p of bots) if (p.stageDone && !doneAt.has(p.pid)) doneAt.set(p.pid, i); }
+  const avgBy = lvs => { const v = bots.filter(p => lvs.includes(p.level) && doneAt.has(p.pid)).map(p => doneAt.get(p.pid)); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+  const lo = avgBy([1, 2]), hi = avgBy([4]);
+  assert.ok(hi != null && lo != null && hi < lo, `높은 레벨이 더 빨라야 함 (레벨 4 평균 ${hi}초, 레벨 1~2 평균 ${lo}초)`);
+  assert.ok(hi <= 45, '레벨 4는 3문제를 평균 45초 안에');
+  // 선생님 '가상 친구 모두 완료'
+  const s2 = setup(1, { stages: 2, perStage: 3, size: 4 });
+  s2.eng.handle(s2.teacher, { t: 'tbots', n: 3 });
+  s2.eng.handle(s2.teacher, { t: 'tdiag' }); s2.flush();
+  { const me = s2.P(s2.kids[0]); while (!me.diag.done) { const q = me.diag.qs[me.diag.idx]; s2.eng.handle(s2.kids[0], { t: 'answer', qid: q.id, choice: q.answer }); } }
+  for (let i = 0; i < 900 && s2.room.phase === 'diag'; i++) { s2.clock.t += 1000; s2.eng.botTick(); s2.flush(); }
+  s2.eng.handle(s2.teacher, { t: 'tstart' }); s2.flush();
+  assert.equal(s2.room.phase, 'playing');
+  s2.eng.handle(s2.kids[0], { t: 'tbotsdone' });
+  assert.ok([...s2.room.players.values()].filter(p => p.bot).every(p => !p.stageDone), '학생은 쓸 수 없음');
+  s2.eng.handle(s2.teacher, { t: 'tbotsdone' });
+  const bs = [...s2.room.players.values()].filter(p => p.bot);
+  assert.ok(bs.every(p => p.stageDone), '가상 친구 모두 이번 스테이지 완료');
+  assert.equal(s2.P(s2.kids[0]).stageDone, false, '실제 학생은 그대로');
+  assert.match(s2.teacher.last('toast').msg, /가상 친구 3명/);
+  assert.equal(s2.teacher.last('tstate').players.filter(p => p.bot).length, 3, '선생님 화면에 가상 친구 표시');
+});

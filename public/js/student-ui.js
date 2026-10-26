@@ -22,6 +22,7 @@
       <div class="ov ov-clear" hidden></div>
       <div class="ov ov-notes" hidden></div>
       <div class="ov ov-shop" hidden></div>
+      <div class="ov ov-intro" hidden></div>
       <div class="ready-banner" role="status" aria-live="assertive" hidden><span>⚔️ 합동 공격이 가능해요!</span><button type="button" class="btn btn-attack sm" data-act="go-attack">공격하러 가기</button></div>
       <div class="ov ov-freeze" hidden><div class="ov-box freeze-box"><div class="freeze-ico" aria-hidden="true">❄️</div><h2>잠깐 멈춤!</h2><p>태블릿을 내려놓고<br>선생님을 바라봐 주세요</p></div></div>
       <div class="conn-bar" hidden>연결이 끊겼어요. 다시 연결하는 중…</div>`;
@@ -92,6 +93,15 @@
       // 우리 모둠이 최종 보스를 물리치면, 다른 모둠이 아직 싸우는 중이어도 내 리포트로 넘어가요
       const phase = st ? (st.phase === 'playing' && st.group && st.group.done && st.result ? 'ended' : st.phase) : null;
       const counting = phase === 'countdown' || phase === 'diagcount';
+      // 게임 설명 팝업: 대기실에 처음 도착했을 때 한 번만 (게임 중간에 들어오면 띄우지 않음, 새로 고침해도 다시 안 뜸)
+      if (st && S.pid && S.introFor !== st.code + S.pid) {
+        S.introFor = st.code + S.pid;
+        const key = 'mq_intro_' + st.code + '_' + S.pid;
+        const seen = demo ? S.introSeenDemo : store.get('localStorage', key);
+        if (phase === 'lobby' && !seen && !demo) openIntro(); // 체험판(선생님·학생 한 화면)에서는 버튼으로만 열기
+        if (demo) S.introSeenDemo = true; else store.set('localStorage', key, 1);
+      }
+      if (counting) $('.ov-intro').hidden = true;
       if (counting && S.lastPhase !== phase) { closeShop(); S.notesOpen = false; $('.ov-notes').hidden = true; } // 게임·레벨 테스트가 시작되면 상점·오답노트를 닫아요
       if (counting && S.lastPhase !== phase) startCountdown(phase === 'diagcount' ? '레벨 테스트를 시작해요!' : '모두 함께 준비!');
       if (!counting) stopCountdown();
@@ -137,35 +147,86 @@
       const typed = !demo || opt.roomInput; // 실제 학생 화면: 방 번호를 직접 입력 (QR로 오면 미리 채워 둠)
       if (typed && pre && !S.form.room && !S.roomPrefilled) { S.form.room = pre; S.roomPrefilled = true; }
       const roomField = typed
-        ? `<label class="field"><span>방 번호 (선생님 화면의 숫자 4개)</span><input id="sj-room" class="inp room-inp" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="4" placeholder="예) 2974" value="${esc(S.form.room)}"></label>`
+        ? roomCells()
         : pre
         ? `<div class="room-fixed">방 번호 <b>${esc(pre)}</b></div>`
         : demo
           ? `<div class="room-fixed muted">선생님 화면에서 먼저 <b>방을 만들어</b> 주세요</div>`
-          : `<label class="field"><span>방 번호 (선생님 화면의 숫자 4개)</span><input id="sj-room" class="inp" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="예) 2974" value="${esc(S.form.room)}"></label>`;
+          : roomCells();
       const busy = !!S.pending;
-      return `<div class="join-wrap">${lumi()}
-        <form class="s-card s-form" data-form="join" autocomplete="off" novalidate>
-          <div class="s-logo"><small>다 함께 몬스터를 물리쳐요</small>협력 몬스터 퀴즈</div>
+      return `<div class="join-wrap">
+        <header class="j-top"><span class="j-logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFC547" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/><path d="m19 21 2-2"/></svg>협력 몬스터 퀴즈</span><button type="button" class="j-howto" data-act="intro">게임 방법</button></header>
+        <section class="j-scene" aria-label="오늘의 보스 등장">
+          <i class="j-rays" aria-hidden="true"></i><i class="j-rays2" aria-hidden="true"></i><i class="j-glow" aria-hidden="true"></i><i class="j-halo" aria-hidden="true"></i>
+          <img class="j-boss" src="${IMG.dragon}" alt="그림자 속 오늘의 보스">
+          <i class="j-dot" style="left:22%;top:30%;width:4px;height:4px"></i><i class="j-dot" style="left:74%;top:22%;width:3px;height:3px"></i><i class="j-dot" style="left:66%;top:62%;width:5px;height:5px"></i><i class="j-dot" style="left:30%;top:70%;width:3px;height:3px"></i>
+          <div class="j-title"><h2>함께 물리쳐라!</h2><p>모둠이 모여야 공격할 수 있어요</p></div>
+        </section>
+        <form class="s-card s-form j-form" data-form="join" autocomplete="off" novalidate>
+          <h1 class="j-h1">모험에 들어가기</h1>
           ${S.err ? `<p class="err" role="alert">${esc(S.err)}</p>` : ''}
           ${roomField}
-          <div class="row2">
+          <div class="row2 j-row">
             <label class="field"><span>출석 번호</span><input id="sj-num" class="inp" type="number" inputmode="numeric" min="1" max="60" placeholder="예) 7" value="${esc(S.form.num)}"></label>
             <label class="field"><span>이름</span><input id="sj-name" class="inp" type="text" maxlength="10" placeholder="내 이름" value="${esc(S.form.name)}"></label>
           </div>
-          <button class="btn btn-gold btn-big" type="submit" ${busy || (demo && !typed && !pre) ? 'disabled' : ''}>${busy ? '들어가는 중…' : '모험 시작하기 ▶'}</button>
-          <p class="muted small center">로그인은 필요 없어요. 출석 번호와 이름만 쓰면 돼요.</p>
-        </form></div>`;
+          <button class="btn btn-gold btn-big j-go" type="submit" ${busy || (demo && !typed && !pre) ? 'disabled' : ''}>${busy ? '들어가는 중…' : '모험 시작하기 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>'}</button>
+        </form>
+        <section class="j-tips" aria-label="알아 두면 좋아요">
+          <p><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8B7BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2z"/><path d="M8 7h6"/></svg><span>틀린 문제는 <b>오답노트</b>에서 다시 풀며 공부해요.</span></p>
+          <p><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5FE0B0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V16h8v-1.3A7 7 0 0 0 12 2z"/></svg><span>막히면 <b>단계별 힌트</b>와 친구 힌트가 도와줘요.</span></p>
+        </section></div>`;
+    }
+    // 방 번호: 진짜 입력 칸 하나 위에 숫자 칸 4개를 보여 줌 (붙여넣기·숫자 자판은 그대로)
+    function roomCells() {
+      const v = S.form.room || '';
+      return `<div class="field"><label for="sj-room">방 번호 <span class="muted">· 선생님 화면의 숫자 4개</span></label>
+        <div class="room-cells"><input id="sj-room" class="room-inp" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="4" aria-label="방 번호 4자리" value="${esc(v)}">${[0, 1, 2, 3].map(i => `<span class="cell ${v.length === i ? 'next' : ''}" aria-hidden="true">${esc(v[i] || '')}</span>`).join('')}</div>
+        <span class="room-note">QR로 들어오면 방 번호가 자동으로 채워져요</span></div>`;
     }
 
     const reactBadge = m => (m.react ? `<span class="react-bubble" aria-label="반응 ${m.react}">${m.react}</span>` : '');
     const handMark = m => (m.hand ? '<span class="hand-mark" aria-label="손 들었어요">✋</span>' : '');
     const rosterHtml = list => `<ul class="roster">${list.map(x => `<li class="${x.me ? 'me' : ''} ${x.hand ? 'hand-up' : ''}"><span class="av-wrap">${avatar(x.equip, 30, x.num)}${reactBadge(x)}</span>${handMark(x)}${esc(x.name)}${x.me ? ' (나)' : ''}</li>`).join('')}</ul>`;
 
+    // ───── 게임 설명 팝업 (한 장에 모두 보기) ─────
+    function introHtml() {
+      return `<section class="it-pop" role="dialog" aria-label="게임 방법">
+        <button type="button" class="it-x" data-act="intro-close" aria-label="닫기">✕</button>
+        <h2 class="it-title">🗡️ <b>협력 몬스터 퀴즈</b>는 이렇게 해요!</h2>
+        <p class="it-sub">선생님이 시작할 때까지 천천히 읽어 보세요.</p>
+        <p class="it-motto"><s>누가 가장 빨리 풀었나?</s> → <b>우리 모두가 결국 해결했나?</b></p>
+        <div class="it-grid">
+          <article class="it-card"><h3><span class="it-num">1</span>레벨 테스트</h3>
+            <div class="it-viz"><div class="it-q">Q. 3 ÷ 4 를 분수로 나타내면?<div class="it-ch"><span>4/3</span><span class="on">3/4</span><span>1/12</span><span>12</span></div></div><img class="it-fairy" src="${IMG.fairy}" alt=""></div>
+            <p>문제 몇 개를 풀면 <b>실력이 고르게 섞이도록</b> 모둠을 나눠요.</p></article>
+          <article class="it-card"><h3><span class="it-num">2</span>몬스터 등장</h3>
+            <div class="it-viz"><div class="it-hp"><i></i><em>HP 360 / 440</em></div><img class="it-mon" src="${IMG.dragon}" alt=""><div class="it-heroes"><span>🧑</span><span>👧</span><span>👦</span><span>🧒</span></div></div>
+            <p>스테이지마다 몬스터가 나타나요. <b>마지막은 최종 보스</b>예요!</p></article>
+          <article class="it-card"><h3><span class="it-num">3</span>내 문제 풀기</h3>
+            <div class="it-viz"><span class="it-dmg">−40</span><div class="it-steps"><span class="it-st it-s1">💡 1번 틀리면 · 힌트 1</span><span class="it-st it-s2">🧚 2번 틀리면 · AI 힌트</span><span class="it-st it-s3">📖 3번 틀리면 · AI 해설</span></div></div>
+            <p>맞히면 몬스터에게 <b>데미지</b>! 틀려도 힌트를 보며 <b>다시 도전</b>해요. 틀린 문제는 오답노트에 저장돼요.</p></article>
+          <article class="it-card"><h3><span class="it-num">4</span>힌트 만들기</h3>
+            <div class="it-viz"><span class="it-twin">⭐ 추가 문제를 맞히면 힌트 하나!</span><div class="it-kinds"><span class="it-kd"><b>✂️</b>보기 지우기<small> 1/2</small></span><span class="it-kd"><b>📗</b>개념<small> 3/4</small></span><span class="it-kd"><b>🪜</b>풀이 과정<small> 2/4</small></span></div></div>
+            <p>내 문제를 먼저 다 풀면 <b>추가 문제</b>를 풀어 <b>모둠 힌트 상자</b>에 힌트를 넣어요. 세 종류를 골고루!</p></article>
+          <article class="it-card"><h3><span class="it-num">5</span>친구 힌트 쓰기</h3>
+            <div class="it-viz"><div class="it-box">🎁 <b>친구 힌트 · 개념 힌트</b> — 나누어지는 수가 분자, 나누는 수가 분모예요.<div class="it-rule">✂️ 1번 틀리면 · 📗🪜 2번 틀리면(또는 1분 뒤) 한 문제에 하나</div></div></div>
+            <p>막히면 상자에서 <b>필요한 힌트를 골라</b> 써요. 누가 만들었는지는 비밀이에요.</p></article>
+          <article class="it-card"><h3><span class="it-num">6</span>모두 해결 → 합동 공격</h3>
+            <div class="it-viz"><img class="it-mon it-mini" src="${IMG.dragon}" alt=""><span class="it-boom">−200</span><span class="it-ready">⚔️ 모두 해결! 합동 공격!</span></div>
+            <p><b>모둠원 모두</b> 자기 문제를 풀어야 공격할 수 있어요. 최종 보스를 물리치면 <b>학습 리포트</b>를 봐요.</p></article>
+        </div>
+        <div class="it-tips"><p>👍 <b>반응</b>: 이모지로 친구를 응원해요.</p><p>✋ <b>손들기</b>: 도움이 필요하면 손을 들어요.</p><p>🛒 <b>상점</b>: 포인트로 캐릭터를 꾸며요.</p></div>
+        <button type="button" class="it-go" data-act="intro-close">알겠어요! 🗡️</button>
+        <p class="it-flow">레벨 테스트 → 몬스터 등장 → 내 문제 풀기 → 힌트 만들기·쓰기 → 모두 해결 → 합동 공격 → 다음 스테이지 → 최종 보스 → 학습 리포트</p>
+      </section>`;
+    }
+    function openIntro() { const ov = $('.ov-intro'); ov.innerHTML = introHtml(); ov.hidden = false; const b = ov.querySelector('.it-go'); if (b) setTimeout(() => b.focus({ preventScroll: true }), 0); }
+
     function lobbyView(st) {
       const list = st.roster || [];
       return topBar(st) + `<section class="s-card s-lobby">
-        <h2>⏳ 대기실</h2>
+        <div class="lobby-head"><h2>⏳ 대기실</h2><button type="button" class="btn btn-ghost sm" data-act="intro">❓ 게임 방법</button></div>
         <p>선생님이 시작하면 레벨 테스트부터 해요<span class="dots" aria-hidden="true"></span></p>
         <p class="map-chip">${esc(st.subjectName)} · ${esc(st.unitName)}</p>
         <div class="mon-preview">${monsterImg({ scale: .7 }, st.hue)}<p class="muted small">이번 지도의 몬스터: <b>${esc(st.dragon)}</b></p></div>
@@ -371,7 +432,7 @@
             : `<form class="twin-row ${BOXED.indexOf(n.fmt) >= 0 ? 'has-boxes' : ''}" data-form="note" data-nid="${esc(n.nid)}" data-fmt="${esc(n.fmt || 'text')}">${ansInput(n.fmt, n.nid, '정답을 다시 써 보세요')}<button class="btn btn-gold sm" type="submit">확인</button></form>`;
         return `<article class="note ${n.resolved ? 'resolved' : ''}">
           <p class="note-meta">${esc(n.unitName)} · ${esc(n.areaName)}</p>
-          <h4>${math(n.text)}</h4>
+          <h4>${math(n.text)}</h4>${/\[\[fig:/.test(n.text) ? '<p class="small muted zoom-tip">🔍 그림을 누르면 크게 볼 수 있어요</p>' : ''}
           <p class="small muted">처음 쓴 답: <span class="mine">${math(n.mine)}</span></p>
           ${body}
           ${!n.resolved && n.hint ? `<p class="step step1">💡 ${math(n.hint)}</p>` : ''}
@@ -544,6 +605,17 @@
     }
 
     // ───── 누르기 ─────
+    // 오답노트 그림 크게 보기: 문제 그림을 누르면 화면 가득 확대 (보기 버튼 안 그림은 답 고르기라 제외)
+    function openZoom(figHtml) {
+      let ov = document.querySelector('.ov-zoom');
+      if (!ov) { ov = document.createElement('div'); ov.className = 'ov-zoom'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-label', '그림 크게 보기'); document.body.appendChild(ov); ov.addEventListener('click', () => { ov.hidden = true; }); }
+      ov.innerHTML = `<div class="zoom-box">${figHtml}<button type="button" class="btn btn-gold">닫기 ✕</button></div>`;
+      ov.hidden = false;
+    }
+    root.addEventListener('click', e => {
+      const zf = e.target.closest('.note h4 .fig-wrap, .note .mine .fig-wrap');
+      if (zf) { e.preventDefault(); openZoom(zf.innerHTML); return; }
+    }, true);
     root.addEventListener('click', e => {
       const el = e.target.closest('[data-act]');
       if (!el || el.disabled || !root.contains(el)) return;
@@ -568,6 +640,8 @@
         case 'hand': net.send({ t: 'hand', up: el.dataset.up === '1' }); break;
         case 'sv-pick': (S.survey || (S.survey = {}))[el.dataset.q] = Number(el.dataset.v); render(); break;
         case 'sv-send': if (st.survey && st.survey.qs.every(q => S.survey && S.survey[q.id] != null)) { S.surveySent = true; net.send({ t: 'survey', answers: S.survey }); render(); } break;
+        case 'intro': openIntro(); break;
+        case 'intro-close': $('.ov-intro').hidden = true; break;
         case 'notes': S.notesOpen = true; S.notes = null; S.noteLast = null; renderNotes(); paintReadyBanner(st); net.send({ t: 'notes' }); break;
         case 'notes-close': S.notesOpen = false; $('.ov-notes').hidden = true; paintReadyBanner(S.st); break;
         case 'go-attack': closeShop(); S.notesOpen = false; $('.ov-notes').hidden = true; paintReadyBanner(S.st); break;
@@ -584,7 +658,7 @@
     });
     root.addEventListener('input', e => {
       const id = e.target.id;
-      if (id === 'sj-room') S.form.room = e.target.value.replace(/\D/g, '').slice(0, 4);
+      if (id === 'sj-room') { S.form.room = e.target.value.replace(/\D/g, '').slice(0, 4); if (e.target.value !== S.form.room) e.target.value = S.form.room; e.target.parentNode.querySelectorAll('.cell').forEach((c, i) => { c.textContent = S.form.room[i] || ''; c.classList.toggle('next', S.form.room.length === i); }); }
       else if (id === 'sj-num') S.form.num = e.target.value;
       else if (id === 'sj-name') S.form.name = e.target.value;
       else if (id === 's-twin') S.twinText = e.target.value;

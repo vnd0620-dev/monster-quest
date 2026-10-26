@@ -40,7 +40,16 @@
     b_girl: `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M10 40 C7 13 57 13 54 40 L57 58 C50 54 47 49 47 43 L17 43 C17 49 14 54 7 58Z" fill="${HAIR}"/>${face}<path d="M12 36 C8 6 56 6 52 36 C46 29 38 30 32 24 C27 31 18 31 12 36Z" fill="${HAIR}"/><circle cx="48" cy="22" r="4" fill="#ff6b9a"/><circle cx="54" cy="25" r="3" fill="#ff6b9a"/></svg>`,
     b_boy: `<svg viewBox="0 0 64 64" aria-hidden="true">${face}<path d="M11 36 C9 26 11 20 14 17 L13 9 L21 14 L25 5 L31 12 L36 4 L39 13 L46 7 L47 16 L53 14 C55 21 55 28 53 36 C47 28 40 26 32 28 C24 26 17 28 11 36Z" fill="${HAIR}"/></svg>`,
   };
-  const itemIcon = it => (it && HUMAN[it.id] ? `<span class="base-svg">${HUMAN[it.id]}</span>` : it ? it.icon : '');
+  // 그림으로 그린 안경 (이모지로 없는 모양: 하트 선글라스 등)
+  const O = '#2a1630';
+  const GLASS = {
+    g_heart: `<svg viewBox="0 0 64 24" aria-hidden="true"><path d="M27 12h10" stroke="${O}" stroke-width="2.5"/><path d="M15 21C5 15 2 10 4 6c2-4 8-4 11 0 3-4 9-4 11 0 2 4-1 9-11 15z" fill="#ff4f8b" stroke="${O}" stroke-width="2"/><path d="M49 21C39 15 36 10 38 6c2-4 8-4 11 0 3-4 9-4 11 0 2 4-1 9-11 15z" fill="#ff4f8b" stroke="${O}" stroke-width="2"/><path d="M8 8.5c1.5-2 4-2 5 0M42 8.5c1.5-2 4-2 5 0" stroke="#ffd0e2" stroke-width="2" fill="none" stroke-linecap="round"/></svg>`,
+    g_star: `<svg viewBox="0 0 64 24" aria-hidden="true"><path d="M26 12h12" stroke="${O}" stroke-width="2.5"/><path d="M15 1l3.2 6.6 7.3 1-5.3 5.1 1.3 7.2L15 17.5l-6.5 3.4 1.3-7.2L4.5 8.6l7.3-1z" fill="#ffd23c" stroke="${O}" stroke-width="2" stroke-linejoin="round"/><path d="M49 1l3.2 6.6 7.3 1-5.3 5.1 1.3 7.2L49 17.5l-6.5 3.4 1.3-7.2-5.3-5.1 7.3-1z" fill="#ffd23c" stroke="${O}" stroke-width="2" stroke-linejoin="round"/><circle cx="13" cy="9" r="1.6" fill="#fff"/><circle cx="47" cy="9" r="1.6" fill="#fff"/></svg>`,
+    g_3d: `<svg viewBox="0 0 64 24" aria-hidden="true"><rect x="2" y="4" width="60" height="16" rx="4" fill="#fff" stroke="${O}" stroke-width="2"/><rect x="6" y="7" width="22" height="10" rx="2.5" fill="#ff3b4f"/><rect x="36" y="7" width="22" height="10" rx="2.5" fill="#2ec8ff"/></svg>`,
+    g_rainbow: `<svg viewBox="0 0 64 24" aria-hidden="true"><defs><linearGradient id="gr" x1="0" x2="1"><stop offset="0" stop-color="#ff4f4f"/><stop offset=".25" stop-color="#ffb03a"/><stop offset=".5" stop-color="#ffe14a"/><stop offset=".75" stop-color="#3fd17a"/><stop offset="1" stop-color="#4f8bff"/></linearGradient></defs><path d="M26 12h12" stroke="${O}" stroke-width="2.5"/><circle cx="15" cy="12" r="10" fill="rgba(200,230,255,.35)" stroke="url(#gr)" stroke-width="4"/><circle cx="49" cy="12" r="10" fill="rgba(200,230,255,.35)" stroke="url(#gr)" stroke-width="4"/></svg>`,
+    g_party: `<svg viewBox="0 0 64 24" aria-hidden="true"><path d="M27 12h10" stroke="${O}" stroke-width="2.5"/><path d="M3 5l7 4c4-2 10-2 15 1 1 6-3 11-10 11S3 16 3 5z" fill="#c86bff" stroke="${O}" stroke-width="2" stroke-linejoin="round"/><path d="M61 5l-7 4c-4-2-10-2-15 1-1 6 3 11 10 11s12-5 12-16z" fill="#c86bff" stroke="${O}" stroke-width="2" stroke-linejoin="round"/><ellipse cx="15" cy="14" rx="6" ry="4" fill="#2a1630"/><ellipse cx="49" cy="14" rx="6" ry="4" fill="#2a1630"/><circle cx="6" cy="2.5" r="1.8" fill="#ffe14a"/><circle cx="58" cy="2.5" r="1.8" fill="#ffe14a"/></svg>`,
+  };
+  const itemIcon = it => (it && HUMAN[it.id] ? `<span class="base-svg">${HUMAN[it.id]}</span>` : it && GLASS[it.id] ? `<span class="glass-svg">${GLASS[it.id]}</span>` : it ? it.icon : '');
 
   // 상점 꾸미기를 반영한 캐릭터 (catalog는 입장할 때 서버가 보내 줌)
   let CAT = {};
@@ -53,7 +62,7 @@
     // 모자는 머리 위, 안경은 눈 위치에 (사람 그림과 동물 이모지는 눈 높이가 달라서 따로 맞춤)
     return `<span class="av ${human ? 'human' : 'emoji'} ${base ? 'b-' + base.id : ''}" style="--s:${size || 40}px${bg && bg.css ? ';background:' + bg.css : ''}" aria-hidden="true">` +
       `<b class="base ${base && HUMAN[base.id] ? 'is-svg' : ''}">${base ? (HUMAN[base.id] || base.icon) : hero(num || 1)}</b>` +
-      (hat ? `<b class="hat">${hat.icon}</b>` : '') + (gl ? `<b class="glasses">${gl.icon}</b>` : '') +
+      (hat ? `<b class="hat">${hat.icon}</b>` : '') + (gl ? (GLASS[gl.id] ? `<b class="glasses is-svg">${GLASS[gl.id]}</b>` : `<b class="glasses">${gl.icon}</b>`) : '') +
       (wp ? `<b class="weapon">${wp.icon}</b>` : '') + (pet ? `<b class="pet">${pet.icon}</b>` : '') + `</span>`;
   }
 

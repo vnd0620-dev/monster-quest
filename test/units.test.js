@@ -196,8 +196,8 @@ test('5단원 여러 가지 그래프: 정답이 그래프 그림·자료와 맞
   const u = QB.unitById('graph');
   const TXT = {
     'gm-9': '띠 전체가 100%가 되어야 하기 때문에', 'gp-10': '전체에 대한 각 부분의 비율을 나타낸다',
-    'gc-1': '꺾은선그래프', 'gc-2': '띠그래프, 원그래프', 'gc-3': '막대그래프', 'gc-4': '꺾은선그래프', 'gc-7': '꺾은선그래프 — 시간에 따른 변화를 잘 나타낸다', 'gc-8': '한 달 동안 매일 잰 강아지의 몸무게',
-    'gc-t1': '꺾은선그래프', 'gc-t2': '원그래프', 'gc-t3': '띠그래프', 'gc-t4': '막대그래프', 'gc-t8': '막대그래프',
+    'gc-1': '꺾은선그래프', 'gc-2': '띠그래프, 원그래프', 'gc-7': '꺾은선그래프 — 시간에 따른 변화를 잘 나타낸다', 'gc-8': '한 달 동안 매일 잰 강아지의 몸무게',
+    'gc-t1': '꺾은선그래프', 'gc-t2': '원그래프', 'gc-t8': '막대그래프',
   };
   let n = 0, figs = 0, mains = 0;
   for (const { it, main } of all(u)) {
@@ -236,6 +236,8 @@ test('5단원 여러 가지 그래프: 정답이 그래프 그림·자료와 맞
     // 문장 속 계산 (gb-10 · gm-4 · gm-t2: 나머지 백분율)
     if (it.id === 'gb-10' || it.id === 'gm-4' || it.id === 'gm-t2') { const ps = [...it.text.matchAll(/(\d+)%/g)].map(x => +x[1]); assert.equal(e, 100 - ps.reduce((a, b) => a + b, 0), it.id); }
     if (it.id === 'gb-t4' || it.id === 'gp-t5') { const k = it.text.match(/(\d+)명/g).map(x => parseInt(x)), p = +it.text.match(/(\d+)%/)[1]; assert.equal(e, k[0] * p / 100, it.id); }
+    if (it.id === 'gc-3') { const v = f.vals; assert.equal(v[0] + v[1], 70); assert.ok(v[2] !== Math.max(...v) && v[1] / v[3] !== 2 && v[0] <= 50, it.id); n++; continue; }
+    if (it.id === 'gc-4') { const v = f.vals; assert.equal(v[1], v[2]); assert.ok(v[3] !== Math.max(...v) && v[0] !== 50 && v[1] - v[3] !== 10, it.id); n++; continue; }
     if (it.id === 'gc-9' || it.id === 'gc-10') { // 해석 문항: 정답 문장만 참
       const v = f.vals;
       if (it.id === 'gc-9') { assert.ok(v[0] === Math.max(...v)); assert.ok(v[1] / v[2] !== 2 && v[0] + v[1] !== 50 && v[3] !== Math.max(...v)); }
