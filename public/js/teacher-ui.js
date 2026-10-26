@@ -151,7 +151,7 @@
         : `<button type="button" class="btn btn-violet" data-act="freeze" data-on="1">❄️ Freeze (모두 멈춤)</button>`;
       const done = ts.players.filter(p => p.online && p.diag && p.diag.done).length;
       switch (ts.phase) {
-        case 'lobby': return `<button type="button" class="btn btn-gold btn-big" data-act="diag" ${on ? '' : 'disabled'}>▶ 레벨 테스트 시작</button><span class="muted">접속 <b>${on}</b>명 · 모두 들어오면 눌러 주세요 (학생마다 ${ts.settings.diag}문항)</span>${researchBtn('지난 게임 협력 리포트')}`;
+        case 'lobby': return `<button type="button" class="btn btn-gold btn-big" data-act="diag" ${on ? '' : 'disabled'}>▶ 레벨 테스트 시작</button><span class="muted">접속 <b>${on}</b>명 · 모두 들어오면 눌러 주세요 (학생마다 ${ts.settings.diag}문항)</span>${researchBtn('지난 게임 협력 리포트')}${demo ? '' : `<span class="bot-add"><label for="t-bot-n" class="small">🤖 가상 친구</label><input id="t-bot-n" class="inp sm-num" type="number" min="1" max="30" value="${T.botN || 3}" inputmode="numeric"><span class="small">명</span><button type="button" class="btn btn-ghost sm" data-act="bots">넣기</button></span>`}`;
         case 'diagcount': return `<b>3, 2, 1… 곧 레벨 테스트가 시작돼요!</b>`;
         case 'diag': return `<b>레벨 테스트 ${done} / ${on}명 완료</b><button type="button" class="btn btn-ghost" data-act="group">모둠 바로 편성</button>${freeze}`;
         case 'grouped': return `<button type="button" class="btn btn-gold btn-big" data-act="start">▶ 게임 시작 (3·2·1)</button>${freeze}`;
@@ -265,13 +265,13 @@
         <h3>레벨 집단 비교 <span class="muted small">(레벨 테스트 기준)</span></h3>
         ${tbl(['집단', '학생 수', '문제 해결률', '한 번에 맞힌 비율', '만든 힌트(평균)', '받은 힌트(평균)', '손들기(평균)', '설문4 필요한 사람(0~2)', '설문5 협력(0~2)'], R.bands.map(b => [esc(b.label), b.n, pctTxt(b.solveRate), pctTxt(b.firstTryRate), n(b.hintsMade), n(b.hintsGot), n(b.hands), n(b.q4), n(b.q5)]))}
         <h3>모둠별</h3>
-        ${tbl(['모둠', '인원', '레벨 구성', '처치/스테이지', '전원 해결률', '스테이지 평균 시간(초)', '평균 완료 격차(초)', '만든 힌트', '쓰인 힌트', '힌트 뒤 해결'], R.groups.map(g => [esc(g.name), g.size, esc(g.levels), `${g.cleared}/${g.stages}`, pctTxt(g.allSolveRate), n(g.avgStageSec), n(g.avgGapSec), g.hintsMade, g.hintsUsed, g.hintsSolved]))}
+        ${tbl(['모둠', '인원(실제)', '가상 친구', '레벨 구성', '처치/스테이지', '전원 해결률', '스테이지 평균 시간(초)', '평균 완료 격차(초)', '만든 힌트', '쓰인 힌트', '힌트 뒤 해결'], R.groups.map(g => [esc(g.name), g.size, g.bots || 0, esc(g.levels), `${g.cleared}/${g.stages}`, pctTxt(g.allSolveRate), n(g.avgStageSec), n(g.avgGapSec), g.hintsMade, g.hintsUsed, g.hintsSolved]))}
         <h3>게임 끝 설문</h3>
         ${tbl(['문항', '응답 수', '그렇다', '보통이다', '아니다', '평균(0~2)'], R.survey.map(q => [esc(q.text), q.n, q.yes, q.some, q.no, n(q.avg)]))}
         <h3>학생별</h3>
         ${tbl(['번호', '이름', '모둠', '레벨', '해결/받은 문제', '해결률', '한 번에', '만든 힌트', '친구가 쓴 내 힌트', '받은 힌트(해결)', '손들기', '설문 1~5'], R.students.map(x => [x.num, esc(x.name), esc(x.group), x.level, `${x.solved}/${x.dealt}`, pctTxt(x.solveRate), pctTxt(x.firstTryRate), x.hintsMade, x.hintsUsedByFriends, `${x.hintsGot}(${x.hintsGotSolved})`, x.hands, ['q1', 'q2', 'q3', 'q4', 'q5'].map(k => x.survey[k] == null ? '·' : x.survey[k]).join(' ')]))}
         <h3>힌트 주고받기 <span class="muted small">(누가 만든 힌트를 누가 썼는지)</span></h3>
-        ${tbl(['시작 후(분)', '스테이지', '모둠', '만든 학생(레벨)', '쓴 학생(레벨)', '힌트 종류', '평가 요소', '결국 해결', '힌트 뒤 더 틀림'], R.gifts.slice(0, 80).map(e => [e.min, e.stage, esc(e.group), `${e.fromNum}번 ${esc(e.fromName || '')} (${e.fromLevel})`, `${e.toNum}번 ${esc(e.toName || '')} (${e.toLevel})`, esc(e.kind), esc(e.area), e.solved ? '⭕' : '❌', n(e.wrongAfter)]))}
+        ${tbl(['시작 후(분)', '스테이지', '모둠', '만든 학생(레벨)', '쓴 학생(레벨)', '힌트 종류', '평가 요소', '쓸 때 틀린 횟수', '결국 해결', '힌트 뒤 더 틀림'], R.gifts.slice(0, 80).map(e => [e.min, e.stage, esc(e.group), `${e.fromNum}번 ${esc(e.fromName || '')} (${e.fromLevel})`, `${e.toNum}번 ${esc(e.toName || '')} (${e.toLevel})`, esc(e.kind), esc(e.area), n(e.wrongBefore), e.solved ? '⭕' : '❌', n(e.wrongAfter)]))}
         ${R.gifts.length > 80 ? `<p class="muted small">화면에는 80개까지만 보여요. 전체 ${R.gifts.length}개는 파일에 모두 들어 있어요.</p>` : ''}
         <p class="muted small">레벨 1~2를 하위 집단, 3~4를 상위 집단으로 나눴어요(레벨 테스트 ${esc(String(T.ts ? T.ts.settings.diag : ''))}문항 기준). 설문 점수는 그렇다 2 · 보통이다 1 · 아니다 0이에요.</p>
       </div>`;
@@ -281,7 +281,7 @@
       const M = R.meta, S = R.summary, sv = x => (x == null ? '' : x);
       if (k === 'summary') return [
         ['항목', '값', '설명'], ['날짜', M.date.slice(0, 10), ''], ['방 번호', M.code, ''], ['단원', M.unit, ''], ['평가 요소', M.area, ''], ['스테이지 수', M.stages, ''], ['1인 문제 수', M.perStage, ''], ['모둠 인원 설정', M.size, ''], ['게임 시간(분)', M.minutes, ''],
-        ['학생 수', S.students, ''], ['모둠 수', S.groups, ''], ['전원 해결률(%)', sv(S.allSolveRate), '모둠원 모두가 해결해 합동 공격까지 간 스테이지 비율'], ['최종 보스 처치 모둠 수', S.finishedGroups, ''],
+        ['학생 수', S.students, '가상 친구는 빼고 실제 학생만'], ['가상 친구 수', S.bots || 0, '모둠 활동에는 참여했지만 표에서는 뺐어요'], ['가상 친구 힌트를 쓴 횟수', S.hintsFromBots || 0, '실제 학생이 가상 친구가 만든 힌트를 쓴 횟수'], ['모둠 수', S.groups, ''], ['전원 해결률(%)', sv(S.allSolveRate), '모둠원 모두가 해결해 합동 공격까지 간 스테이지 비율'], ['최종 보스 처치 모둠 수', S.finishedGroups, ''],
         ['평균 문제 해결률(%)', sv(S.solveRate), '받은 문제 중 끝까지 해결한 비율의 평균'], ['만든 힌트 수', S.hintsMade, ''], ['쓰인 힌트 수', S.hintsUsed, ''], ['힌트 사용률(%)', sv(S.hintUseRate), '쓰인 힌트 ÷ 만든 힌트'],
         ['친구 힌트 뒤 해결률(%)', sv(S.hintSolvedRate), '친구 힌트를 쓴 문제를 결국 해결한 비율'], ['상위→하위 도움 횟수', S.lowToHigh, '레벨 3~4가 만든 힌트를 레벨 1~2가 쓴 횟수'], ['평균 완료 격차(초)', sv(S.avgGapSec), '모둠 안 첫 완료자와 마지막 완료자 사이 시간'],
         ['손들기 횟수', S.hands, ''], ['선생님이 손 내려 준 횟수', S.lowered, ''], ['Freeze 횟수', S.freezes, ''], ['Freeze 시간(초)', S.frozenSec, ''], ['설문 응답 학생 수', S.surveyDone, ''],
@@ -298,12 +298,12 @@
         ...R.students.map(x => [x.num, x.name, x.group, x.level, x.band, x.dealt, x.solved, sv(x.solveRate), x.firstTry, sv(x.firstTryRate), x.wrong, x.extraSolved, x.hintsMade, x.hintsUsedByFriends, x.hintsGot, x.hintsGotSolved, x.hands, x.handSec, x.lowered, x.reacts, x.notes, x.notesResolved, ...R.areaNames.map(a => x.levels[a] || ''), sv(x.survey.q1), sv(x.survey.q2), sv(x.survey.q3), sv(x.survey.q4), sv(x.survey.q5)]),
       ];
       if (k === 'groups') return [
-        ['모둠', '인원', '레벨 구성', '스테이지 수', '처치한 스테이지', '최종 보스 처치', '전원 해결률(%)', '스테이지 평균 시간(초)', '평균 완료 격차(초)', '만든 힌트', '쓰인 힌트', '힌트 뒤 해결', '스테이지별 (번호:시간초/격차초)'],
-        ...R.groups.map(g => [g.name, g.size, g.levels, g.stages, g.cleared, g.done ? '예' : '아니요', sv(g.allSolveRate), sv(g.avgStageSec), sv(g.avgGapSec), g.hintsMade, g.hintsUsed, g.hintsSolved, g.stageRows.map(r => `${r.stage}:${r.sec}/${r.gapSec}`).join(' ')]),
+        ['모둠', '인원(실제)', '가상 친구', '레벨 구성', '스테이지 수', '처치한 스테이지', '최종 보스 처치', '전원 해결률(%)', '스테이지 평균 시간(초)', '평균 완료 격차(초)', '만든 힌트', '쓰인 힌트', '힌트 뒤 해결', '스테이지별 (번호:시간초/격차초)'],
+        ...R.groups.map(g => [g.name, g.size, g.bots || 0, g.levels, g.stages, g.cleared, g.done ? '예' : '아니요', sv(g.allSolveRate), sv(g.avgStageSec), sv(g.avgGapSec), g.hintsMade, g.hintsUsed, g.hintsSolved, g.stageRows.map(r => `${r.stage}:${r.sec}/${r.gapSec}`).join(' ')]),
       ];
       return [
-        ['시작 후(분)', '스테이지', '모둠', '만든 학생 번호', '만든 학생 이름', '만든 학생 레벨', '쓴 학생 번호', '쓴 학생 이름', '쓴 학생 레벨', '힌트 종류', '평가 요소', '결국 해결', '힌트 뒤 더 틀린 횟수', '해결까지(초)'],
-        ...R.gifts.map(e => [e.min, e.stage, e.group, e.fromNum, e.fromName, e.fromLevel, e.toNum, e.toName, e.toLevel, e.kind, e.area, e.solved ? '예' : '아니요', sv(e.wrongAfter), sv(e.solvedSec)]),
+        ['시작 후(분)', '스테이지', '모둠', '만든 학생 번호', '만든 학생 이름', '만든 학생 레벨', '쓴 학생 번호', '쓴 학생 이름', '쓴 학생 레벨', '힌트 종류', '평가 요소', '쓸 때 틀린 횟수', '결국 해결', '힌트 뒤 더 틀린 횟수', '해결까지(초)'],
+        ...R.gifts.map(e => [e.min, e.stage, e.group, e.fromNum, e.fromName, e.fromLevel, e.toNum, e.toName, e.toLevel, e.kind, e.area, sv(e.wrongBefore), e.solved ? '예' : '아니요', sv(e.wrongAfter), sv(e.solvedSec)]),
       ];
     }
     const SHEETS = [['summary', '요약'], ['bands', '레벨 집단 비교'], ['survey', '설문'], ['groups', '모둠별'], ['students', '학생별'], ['gifts', '힌트 주고받기']];
@@ -389,6 +389,7 @@
       ov.hidden = false;
     }
 
+    root.addEventListener('input', e => { if (e.target.id === 't-bot-n') T.botN = e.target.value; }); // 다시 그려도 입력한 수가 남게
     root.addEventListener('click', e => {
       const el = e.target.closest('[data-act]');
       if (!el || el.disabled || !root.contains(el)) return;
@@ -419,6 +420,7 @@
         case 'research-close': T.researchOpen = false; $('.ov-research').hidden = true; break;
         case 'research-refresh': net.send({ t: 'tresearch' }); break;
         case 'xlsx': downloadXlsx(); break;
+        case 'bots': { const v = Math.round(Number(($('#t-bot-n') || {}).value)); if (v >= 1) { T.botN = Math.min(30, v); net.send({ t: 'tbots', n: T.botN }); toast($('.toasts'), `🤖 가상 친구 ${T.botN}명을 넣었어요. 레벨 테스트부터 스스로 풀어요. (협력 리포트에는 들어가지 않아요)`); } break; }
         case 'copy': {
           const fixed = el.dataset.which === 'fixed', t = (joinInfo() || {})[fixed ? 'fixed' : 'url']; if (!t) return;
           const fallback = () => { const r = document.createRange(); r.selectNodeContents($(fixed ? '#t-fixed' : '#t-url')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast($('.toasts'), '링크를 선택했어요. Ctrl+C로 복사해 주세요.'); };

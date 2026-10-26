@@ -646,3 +646,23 @@ h1, h2, h3, h4 { font-family: var(--display); font-weight: 400; text-wrap: balan
 .area-card.stu .tip { margin: 0; }
 .area-card.stu .evid { margin: 0; font-size: 14px; }
 @media (max-width: 480px) { .area-card.stu .concept.big { font-size: 18px; } }
+
+/* v0.14 힌트 종류별 한도 표시 */
+.kind-caps { display: inline-flex; gap: 6px; margin-left: 4px; font-size: 12px; opacity: .9; }
+.kc.full { opacity: .5; text-decoration: line-through; }
+.cap-line { margin: 0; color: var(--muted); }
+.cap-line .kc { margin-right: 8px; }
+.gift-btn small.cap { color: var(--gold); }
+
+/* v0.14 선생님 대기실 가상 친구 넣기 */
+.bot-add { display: inline-flex; align-items: center; gap: 6px; background: var(--deep); border-radius: 12px; padding: 4px 8px; }
+.bot-add .sm-num { width: 64px; font-size: 16px; padding: 4px 6px; text-align: center; }
+
+/* v0.14 5·6단원 그림: 그래프 보기는 크게 (띠그래프 보기는 한 줄에 하나), 쌓기나무는 너무 크게 늘어나지 않게 */
+.q-text .fig-wrap.fig-band, .q-text .fig-wrap.fig-band2, .twin-q .fig-wrap.fig-band, .twin-q .fig-wrap.fig-band2 { max-width: 420px; }
+.q-text .fig-wrap.fig-pie, .twin-q .fig-wrap.fig-pie { max-width: 300px; }
+.choices:has(.fig-band) { grid-template-columns: minmax(0, 1fr); }
+.choice .fig-wrap.fig-band { max-width: 420px; width: 100%; }
+.choice .fig-wrap.fig-pie { max-width: 240px; width: 100%; }
+.q-text .fig-wrap.fig-cubes, .twin-q .fig-wrap.fig-cubes { max-width: 230px; }
+@media (max-width: 520px) { .choices:has(.fig-pie) { grid-template-columns: minmax(0, 1fr); } }

@@ -26,7 +26,9 @@
   const SMALL = 40;   // 한 문제 맞힐 때
   const TEAM = 200;   // 합동 공격 (마지막 일격)
   const MAX_GIFTS = 1; // 한 문제에 쓸 수 있는 친구 힌트 수 (3종류 중 하나만 골라 씀)
-  const BOX_MAX = 9;  // 모둠 힌트 상자 크기 (가득 차면 추가 문제는 포인트만)
+  const BOX_MAX = 10; // 모둠 힌트 상자 크기 (가득 차면 추가 문제는 포인트만)
+  const KIND_MAX = { elim: 2, concept: 4, step: 4 }; // 스테이지마다 종류별로 만들 수 있는 수 (합 10)
+  const UNLOCK_BY = { elim: 1, concept: 2, step: 2 }; // 몇 번 틀리면 쓸 수 있는지 (보기 지우기는 귀한 힌트라 1번부터)
   const POINTS = { correct: 10, extra: 10, give: 5, team: 20, note: 5 };
   const STAGE_TITLES = ['새끼', '성난', '거대한', '고대의'];
   const TEAM_NAMES = ['별빛 용사단', '불꽃 기사단', '바람 탐험대', '무지개 수호대', '번개 마법단', '달빛 모험단', '파도 원정대', '숲속 지킴이', '구름 파수꾼', '황금 방패단'];
@@ -163,8 +165,13 @@
     const REACT_MS = 10000; // 이모지 반응은 10초 동안 프로필에 떠 있음 (줌처럼)
     const reactOf = p => (p.react && now() - p.react.at < REACT_MS ? p.react.e : null);
     // 힌트 종류 골고루: 내가 가장 적게 만든 종류만 고를 수 있음 (3종류를 한 번씩 돌아가며)
-    const allowedKinds = p => { const ks = Object.keys(GIFTS), c = k => (p.made && p.made[k]) || 0, min = Math.min(...ks.map(c)); return ks.filter(k => c(k) === min); };
-    const canTakeGift = (p, c) => isStuck(p, c) && c.gifts.length < MAX_GIFTS;
+    // 이번 스테이지에 모둠이 그 종류를 더 만들 수 있는지 (보기 지우기 2 · 개념 4 · 풀이 4)
+    const kindLeft = (g, k) => KIND_MAX[k] - ((g && g.made && g.made[k]) || 0);
+    const allowedKinds = (p, g) => { const ks = Object.keys(GIFTS).filter(k => !g || kindLeft(g, k) > 0); if (!ks.length) return []; const c = k => (p.made && p.made[k]) || 0, min = Math.min(...ks.map(c)); return ks.filter(k => c(k) === min); };
+    const boxFull = g => !!g && (g.box.length >= BOX_MAX || Object.keys(GIFTS).every(k => kindLeft(g, k) <= 0));
+    // 종류마다 쓸 수 있는 때가 달라요: 보기 지우기는 1번, 나머지는 2번 틀리면 (또는 60초가 지나면)
+    const canUseKind = (p, c, k) => !!(c && !p.stageDone && c.gifts.length < MAX_GIFTS && (c.tried.length >= UNLOCK_BY[k] || now() - c.shownAt >= STUCK_MS) && (k !== 'elim' || canElim(c)));
+    const canTakeGift = (p, c) => Object.keys(GIFTS).some(k => canUseKind(p, c, k));
 
     // ───── 문제 고르기 ─────
     function targetDiff(room, p) {
@@ -233,7 +240,7 @@
     // ───── 모둠 ─────
     function newGroup(room) {
       const i = room.groups.length;
-      const g = { id: 'g' + (++room.gseq), name: TEAM_NAMES[i % TEAM_NAMES.length] + (i >= TEAM_NAMES.length ? ' ' + (Math.floor(i / TEAM_NAMES.length) + 1) : ''), members: [], stage: 1, hp: 0, hpMax: 0, cleared: 0, done: false, chat: [], box: [] };
+      const g = { id: 'g' + (++room.gseq), name: TEAM_NAMES[i % TEAM_NAMES.length] + (i >= TEAM_NAMES.length ? ' ' + (Math.floor(i / TEAM_NAMES.length) + 1) : ''), members: [], stage: 1, hp: 0, hpMax: 0, cleared: 0, done: false, chat: [], box: [], made: {} };
       room.groups.push(g);
       return g;
     }
@@ -351,7 +358,7 @@
         id: g.id, name: g.name, stage: g.stage, stages: room.settings.stages, hp: g.hp, hpMax: g.hpMax, cleared: g.cleared, done: g.done,
         ready: isReady(room, g), monster: monsterOf(room, g.stage),
         members: membersOf(room, g).map(m => ({ pid: m.pid, num: m.num, name: m.name, online: m.online, me: m === me, equip: m.equip, react: reactOf(m), hand: !!m.hand })),
-        boxMax: BOX_MAX, box: g.box.map(b => ({ kind: b.kind, label: GIFTS[b.kind] })), boxKinds: Object.keys(GIFTS).map(k => ({ kind: k, label: GIFTS[k], count: g.box.filter(b => b.kind === k).length })),
+        boxMax: BOX_MAX, boxFull: boxFull(g), box: g.box.map(b => ({ kind: b.kind, label: GIFTS[b.kind] })), boxKinds: Object.keys(GIFTS).map(k => ({ kind: k, label: GIFTS[k], count: g.box.filter(b => b.kind === k).length, made: (g.made && g.made[k]) || 0, max: KIND_MAX[k], unlock: UNLOCK_BY[k] })),
       };
     }
     function groupViewTeacher(room, g) {
@@ -381,8 +388,8 @@
       if (room.phase === 'playing' && g) {
         const c = curOf(p);
         st.play = { qi: p.qi, per: room.settings.perStage, stageDone: !!p.stageDone };
-        if (c && !p.stageDone) st.play.q = { id: c.id, areaName: c.areaName, text: c.text, choices: c.choices, tried: c.tried, eliminated: c.eliminated, gifts: c.gifts.map(x => ({ kind: x.kind, label: x.label, text: x.text })), elimOk: canElim(c), steps: c.hints.slice(0, Math.min(3, c.tried.length)), canTake: canTakeGift(p, c) };
-        if (p.twin) st.play.twin = { id: p.twin.id, state: p.twin.state, allowed: p.twin.state === 'reward' ? allowedKinds(p) : undefined, fmt: p.twin.answers ? fmtOf(p.twin.answers[0]) : 'text', text: p.twin.text, areaName: p.twin.areaName, diff: p.twin.diff, tries: p.twin.tries, steps: p.twin.hints ? p.twin.hints.slice(0, Math.min(3, p.twin.tries)) : [] };
+        if (c && !p.stageDone) st.play.q = { id: c.id, areaName: c.areaName, text: c.text, choices: c.choices, tried: c.tried, eliminated: c.eliminated, gifts: c.gifts.map(x => ({ kind: x.kind, label: x.label, text: x.text })), elimOk: canElim(c), canKinds: Object.keys(GIFTS).filter(k => canUseKind(p, c, k)), steps: c.hints.slice(0, Math.min(3, c.tried.length)), canTake: canTakeGift(p, c) };
+        if (p.twin) st.play.twin = { id: p.twin.id, state: p.twin.state, allowed: p.twin.state === 'reward' ? allowedKinds(p, groupOf(room, p)) : undefined, fmt: p.twin.answers ? fmtOf(p.twin.answers[0]) : 'text', text: p.twin.text, areaName: p.twin.areaName, diff: p.twin.diff, tries: p.twin.tries, steps: p.twin.hints ? p.twin.hints.slice(0, Math.min(3, p.twin.tries)) : [] };
         st.play.helpWanted = !!p.stageDone && !g.done && needyOf(room, g, p).length > 0; // 누가 막혔는지는 보내지 않음
       }
       if (room.phase === 'playing' && !g) st.waiting = true;
@@ -402,7 +409,7 @@
       const avg = arr => { const v = arr.filter(x => x != null); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length * 10) / 10 : null; };
       const sec = ms => Math.round(ms / 1000);
       const gname = gid => (room.groups.find(g => g.id === gid) || {}).name || '-';
-      const players = [...room.players.values()].filter(p => p.group || (p.rs && p.rs.dealt)).sort((a, b) => a.num - b.num);
+      const players = [...room.players.values()].filter(p => !p.bot && (p.group || (p.rs && p.rs.dealt))).sort((a, b) => a.num - b.num); // 가상 친구는 빼고 실제 학생만
       const byPid = new Map(players.map(p => [p.pid, p]));
       const students = players.map(p => {
         const qs = p.records.filter(r => r.kind === 'q'), rs = p.rs || {};
@@ -426,15 +433,16 @@
         const gift = L.gifts.filter(e => e.gid === g.id);
         const mem = g.members.map(pid => byPid.get(pid)).filter(Boolean);
         return {
-          name: g.name, size: mem.length, levels: mem.map(m => m.level || 0).join('·'), stages: room.settings.stages, cleared: g.cleared, done: g.done,
+          name: g.name, size: mem.length, bots: g.members.filter(pid => (room.players.get(pid) || {}).bot).length, levels: mem.map(m => m.level || 0).join('·'), stages: room.settings.stages, cleared: g.cleared, done: g.done,
           allSolveRate: pct(g.cleared, room.settings.stages), avgStageSec: avg(st.map(x => sec(x.cleared - x.start))), avgGapSec: avg(st.map(x => sec(x.gapMs))),
           hintsMade: mem.reduce((a, m) => a + madeCount(m), 0), hintsUsed: gift.length, hintsSolved: gift.filter(e => e.solved).length,
           stageRows: st.map(x => ({ stage: x.stage, sec: sec(x.cleared - x.start), gapSec: sec(x.gapMs) })),
         };
       });
-      const gifts = L.gifts.map(e => {
-        const a = byPid.get(e.fromPid) || room.players.get(e.fromPid) || {}, b = byPid.get(e.toPid) || room.players.get(e.toPid) || {};
-        return { min: Math.round((e.at - L.start) / 6000) / 10, stage: e.stage, group: gname(e.gid), fromNum: a.num, fromName: a.name, fromLevel: a.level || 0, toNum: b.num, toName: b.name, toLevel: b.level || 0, kind: GIFTS[e.kind], area: e.area, solved: e.solved, wrongAfter: e.wrongAfter, solvedSec: e.solvedSec };
+      const isBot = pid => !!(room.players.get(pid) || {}).bot;
+      const gifts = L.gifts.filter(e => !isBot(e.toPid)).map(e => { // 가상 친구가 받은 힌트는 빼고, 가상 친구가 만든 힌트는 '가상 친구'로 남김
+        const a = byPid.get(e.fromPid) || room.players.get(e.fromPid) || {}, b = byPid.get(e.toPid) || room.players.get(e.toPid) || {}, fromBot = isBot(e.fromPid);
+        return { min: Math.round((e.at - L.start) / 6000) / 10, stage: e.stage, group: gname(e.gid), fromBot, fromNum: fromBot ? '' : a.num, fromName: fromBot ? '가상 친구' : a.name, fromLevel: a.level || 0, toNum: b.num, toName: b.name, toLevel: b.level || 0, kind: GIFTS[e.kind], area: e.area, wrongBefore: e.triedBefore, solved: e.solved, wrongAfter: e.wrongAfter, solvedSec: e.solvedSec };
       });
       const band = name => students.filter(x => x.band.startsWith(name));
       const bandRow = (label, arr) => ({ label, n: arr.length, solveRate: avg(arr.map(x => x.solveRate)), firstTryRate: avg(arr.map(x => x.firstTryRate)), hintsMade: avg(arr.map(x => x.hintsMade)), hintsGot: avg(arr.map(x => x.hintsGot)), hands: avg(arr.map(x => x.hands)), q4: avg(arr.map(x => x.survey.q4)), q5: avg(arr.map(x => x.survey.q5)) });
@@ -446,8 +454,8 @@
         summary: {
           students: students.length, groups: groups.length, allSolveRate: pct(room.groups.reduce((a, g) => a + g.cleared, 0), room.groups.length * room.settings.stages),
           finishedGroups: room.groups.filter(g => g.done).length, solveRate: avg(students.map(x => x.solveRate)),
-          hintsMade: made, hintsUsed: gifts.length, hintUseRate: pct(gifts.length, made), hintSolvedRate: pct(gifts.filter(x => x.solved).length, gifts.length),
-          lowToHigh: gifts.filter(x => x.fromLevel >= 3 && x.toLevel <= 2).length,
+          hintsMade: made, hintsUsed: gifts.filter(x => !x.fromBot).length, hintUseRate: pct(gifts.filter(x => !x.fromBot).length, made), hintsFromBots: gifts.filter(x => x.fromBot).length, bots: [...room.players.values()].filter(p => p.bot).length, hintSolvedRate: pct(gifts.filter(x => x.solved).length, gifts.length),
+          lowToHigh: gifts.filter(x => !x.fromBot && x.fromLevel >= 3 && x.toLevel <= 2).length,
           freezes: L.freezes, frozenSec: sec(L.frozenMs + (L.frozenAt ? end - L.frozenAt : 0)), hands: students.reduce((a, x) => a + x.hands, 0), lowered: students.reduce((a, x) => a + x.lowered, 0),
           avgGapSec: avg(groups.map(g => g.avgGapSec)), surveyDone: students.filter(x => x.surveyDone).length,
         },
@@ -511,7 +519,7 @@
     }
     function startPlaying(room) {
       countdownTo(room, 'countdown', () => {
-        for (const g of room.groups) { g.stage = 1; g.cleared = 0; g.done = false; g.box = []; g.stageStart = now(); setStageHp(room, g); }
+        for (const g of room.groups) { g.stage = 1; g.cleared = 0; g.done = false; g.box = []; g.made = {}; g.stageStart = now(); setStageHp(room, g); }
         room.rlog = { start: now(), end: null, gifts: [], stages: [], freezes: 0, frozenMs: 0, frozenAt: null };
         room.phase = 'playing';
         for (const p of room.players.values()) if (groupOf(room, p)) dealStage(room, p, true);
@@ -598,7 +606,7 @@
       if (last) { g.done = true; for (const m of membersOf(room, g)) m.twin = null; }
       else {
         g.stage++;
-        g.box = []; // 스테이지마다 힌트 상자를 새로 채워요 (주고받는 기회를 매 라운드 다시)
+        g.box = []; g.made = {}; // 스테이지마다 힌트 상자를 새로 채워요 (주고받는 기회를 매 라운드 다시)
         setStageHp(room, g);
         ev.next = monsterOf(room, g.stage);
         for (const m of membersOf(room, g)) dealStage(room, m);
@@ -715,6 +723,13 @@
             return endGame(room);
           case 'treset':
             resetToLobby(room); return pushAll(room);
+          case 'tbots': {
+            if (room.phase !== 'lobby') return;
+            const n = intIn(m.n, 1, 30);
+            if (!n) return;
+            addBots(room, n);
+            return pushAll(room);
+          }
           case 'tkick': {
             if (room.phase !== 'lobby') return;
             const p = room.players.get(String(m.pid));
@@ -795,7 +810,7 @@
           if (hasHangul(tw.answers[0]) && /\d/.test(text) && !/\d/.test(tw.answers[0])) return toast(conn, '숫자 대신 한글로 써 주세요. 예) 칠각뿔');
           if (matches(text, tw.answers)) {
             tw.state = 'reward'; p.stats.extra++; p.points += POINTS.extra;
-            if (g && g.box.length >= BOX_MAX) { p.twin = isReady(room, g) || g.done ? null : { state: 'choose' }; toast(conn, `⭐ 맞혔어요! +${POINTS.extra}점 · 힌트 상자가 가득 차서 이번엔 포인트만 받아요.`); }
+            if (g && boxFull(g)) { p.twin = isReady(room, g) || g.done ? null : { state: 'choose' }; toast(conn, `⭐ 맞혔어요! +${POINTS.extra}점 · 이번 스테이지 힌트를 모두 만들어서 이번엔 포인트만 받아요.`); }
             p.records.push({ kind: 'twin', qid: tw.tid, diff: tw.diff, stage: g ? g.stage : 0, area: tw.area, areaName: tw.areaName, text: tw.text, answer: tw.answers[0], wrong: tw.tries, picks: tw.picks || [], mis: [], gifts: 0 });
             send(conn, { t: 'result', correct: true, twin: true });
           } else {
@@ -815,22 +830,25 @@
         }
         case 'hintpick': { // 얻은 힌트 종류를 골라 모둠 힌트 상자에 넣기
           if (room.phase !== 'playing' || !g || !p.twin || p.twin.state !== 'reward' || !GIFTS[m.kind]) return;
-          if (g.box.length >= BOX_MAX) { // 그사이 상자가 가득 찼으면 힌트는 넣지 않음 (점수는 맞혔을 때 이미 받음)
-            toast(conn, '힌트 상자가 가득 찼어요. 이번 문제는 포인트만 받아요.');
+          if (boxFull(g)) { // 그사이 상자가 가득 찼으면 힌트는 넣지 않음 (점수는 맞혔을 때 이미 받음)
+            toast(conn, '이번 스테이지 힌트를 모두 만들었어요. 이번 문제는 포인트만 받아요.');
             p.twin = isReady(room, g) || g.done ? null : { state: 'choose' };
             return pushAll(room);
           }
-          if (allowedKinds(p).indexOf(m.kind) < 0) return toast(conn, '힌트를 골고루 만들어 봐요. 아직 안 만든 종류를 먼저 골라요.');
-          { g.box.push({ id: uid(), kind: m.kind, from: p.name, fromPid: p.pid }); p.made = p.made || {}; p.made[m.kind] = (p.made[m.kind] || 0) + 1; toast(conn, `🎁 ${GIFTS[m.kind]}를 모둠 힌트 상자에 넣었어요!`); }
+          if (kindLeft(g, m.kind) <= 0) return toast(conn, `${GIFTS[m.kind]}는 이번 스테이지에 ${KIND_MAX[m.kind]}개를 다 만들었어요. 다른 종류를 골라요.`);
+          if (allowedKinds(p, g).indexOf(m.kind) < 0) return toast(conn, '힌트를 골고루 만들어 봐요. 아직 안 만든 종류를 먼저 골라요.');
+          { g.box.push({ id: uid(), kind: m.kind, from: p.name, fromPid: p.pid }); p.made = p.made || {}; p.made[m.kind] = (p.made[m.kind] || 0) + 1; g.made = g.made || {}; g.made[m.kind] = (g.made[m.kind] || 0) + 1; toast(conn, `🎁 ${GIFTS[m.kind]}를 모둠 힌트 상자에 넣었어요!`); }
           p.twin = isReady(room, g) || g.done ? null : { state: 'choose' };
           return pushAll(room);
         }
         case 'take': { // 막힌 학생이 직접 힌트 종류를 골라 씀 (같은 종류가 여러 개면 그중 하나를 무작위로)
           if (room.phase !== 'playing' || !g) return;
           const c = curOf(p);
-          if (!canTakeGift(p, c)) return toast(conn, c && c.gifts.length >= MAX_GIFTS ? '이 문제에는 친구 힌트를 이미 썼어요.' : '먼저 혼자 생각해 봐요. 2번 틀리거나 1분이 지나면 친구 힌트를 쓸 수 있어요.');
-          const kind = GIFTS[m.kind] ? m.kind : (g.box.find(b => b.kind !== 'elim' || canElim(c)) || {}).kind;
+          if (!canTakeGift(p, c)) return toast(conn, c && c.gifts.length >= MAX_GIFTS ? '이 문제에는 친구 힌트를 이미 썼어요.' : '먼저 혼자 생각해 봐요. 틀린 보기 지우기는 1번, 다른 힌트는 2번 틀리거나 1분이 지나면 쓸 수 있어요.');
+          const kind = GIFTS[m.kind] ? m.kind : (g.box.find(b => canUseKind(p, c, b.kind)) || {}).kind;
+          if (!kind) return toast(conn, '지금 쓸 수 있는 힌트가 상자에 없어요.');
           if (kind === 'elim' && !canElim(c)) return toast(conn, '남은 보기가 2개뿐이라 틀린 보기 지우기는 쓸 수 없어요.');
+          if (!canUseKind(p, c, kind)) return toast(conn, `${GIFTS[kind]}는 ${UNLOCK_BY[kind]}번 틀리거나 1분이 지나면 쓸 수 있어요.`);
           const same = g.box.filter(b => b.kind === kind);
           if (!same.length) return toast(conn, '이 힌트는 상자에 없어요.');
           applyGift(room, g, pick(same), p);
@@ -907,13 +925,57 @@
       pushAll(room);
       checkDiagDone(room);
     }
+    // ───── 가상 친구 (선생님 대기실에서 넣기) ─────
+    // 레벨이 고르게 나오도록 정답률을 돌아가며 정하고, 한 문제에 걸리는 시간도 실제 학생과 비슷하게(약 15~35초) 맞춰요.
+    const BOT_NAMES = ['별이', '솔이', '콩이', '달이', '구름', '보리', '하늘', '바다', '단비', '새봄', '나래', '미르', '가람', '누리', '다온', '라온', '여름', '이슬', '한울', '해솔', '초롱', '아라', '도담', '봄이', '빛나', '슬기', '온새', '하랑', '예솔', '푸름'];
+    const BOT_KIND = [{ acc: 0.5, sec: 34 }, { acc: 0.68, sec: 27 }, { acc: 0.84, sec: 21 }, { acc: 0.95, sec: 16 }];
+    function addBots(room, n) {
+      const all = () => [...room.players.values()];
+      let made = all().filter(p => p.bot).length;
+      for (let i = 0; i < n && all().length < 40; i++) {
+        let num = 60; while (num > 0 && all().some(p => p.num === num)) num--;
+        if (!num) break;
+        const base = BOT_NAMES.find(x => !all().some(p => p.name === '🤖 ' + x)) || ('친구' + num);
+        const kind = BOT_KIND[made++ % BOT_KIND.length];
+        const p = Object.assign({ pid: uid(), num, name: '🤖 ' + base, conn: null, online: false, points: 0, owned: [], equip: { base: BASES[(num - 1) % BASES.length], bg: 'bg_night' }, react: null, hand: false, bot: kind }, freshProgress());
+        room.players.set(p.pid, p);
+        attach(room, p, { ctx: {}, send() {}, bot: true });
+      }
+    }
+    function botTick() { // 1초마다 서버가 불러요
+      for (const room of rooms.values()) {
+        if (room.frozen || (room.phase !== 'diag' && room.phase !== 'playing')) continue;
+        for (const p of [...room.players.values()]) {
+          if (!p.bot || !p.conn || !p.online) continue;
+          const b = p.bot, conn = p.conn, chance = x => rand() < x;
+          if (room.phase === 'diag') {
+            if (p.diag && !p.diag.done && chance(1 / 10)) { const q = p.diag.qs[p.diag.idx]; handle(conn, { t: 'answer', qid: q.id, choice: chance(b.acc) ? q.answer : (q.answer + 1) % 4 }); }
+            continue;
+          }
+          const g = groupOf(room, p);
+          if (!g || g.done) continue;
+          const c = curOf(p);
+          if (c && !p.stageDone && c.gifts.length < MAX_GIFTS && g.box.length && chance(0.25)) { // 막히면 상자에서 쓸 수 있는 힌트를 꺼내 씀
+            const ks = [...new Set(g.box.map(x => x.kind))].filter(k => canUseKind(p, c, k));
+            if (ks.length) { handle(conn, { t: 'take', kind: pick(ks) }); continue; }
+          }
+          if (c && !p.stageDone) {
+            if (chance(1 / b.sec)) { const pool = c.choices.map((_, i) => i).filter(i => i !== c.answer && c.tried.indexOf(i) < 0 && c.eliminated.indexOf(i) < 0); handle(conn, { t: 'answer', qid: c.id, choice: chance(b.acc) || !pool.length ? c.answer : pick(pool) }); }
+          } else if (p.twin && p.twin.state === 'choose' && chance(0.12)) handle(conn, { t: 'twinpick', diff: R(1, 3) });
+          else if (p.twin && p.twin.state === 'open' && chance(1 / b.sec)) handle(conn, { t: 'twin', tid: p.twin.id, text: chance(b.acc) ? p.twin.answers[0] : '모르겠어요' });
+          else if (p.twin && p.twin.state === 'reward' && chance(0.3)) { const ks = allowedKinds(p, g); handle(conn, { t: 'hintpick', kind: ks.length ? pick(ks) : 'concept' }); }
+          else if (isReady(room, g) && membersOf(room, g).every(m => m.bot || !m.online) && chance(0.2)) handle(conn, { t: 'attack', stage: g.stage });
+          if (chance(0.01)) handle(conn, { t: 'chat', emoji: pick(CHAT) });
+        }
+      }
+    }
     function sweep(maxIdleMs) {
       const t = now();
       for (const [code, r] of rooms) if (!r.tconn && t - r.touched > maxIdleMs) rooms.delete(code);
     }
 
-    return { handle, disconnect, sweep, rooms };
+    return { handle, disconnect, sweep, botTick, rooms };
   }
 
-  return { numVal, fmtOf, createEngine, DEFAULTS, SMALL, TEAM, CHAT, GIFTS, CATALOG, MAX_GIFTS, POINTS, matches, chosung };
+  return { numVal, fmtOf, createEngine, DEFAULTS, SMALL, TEAM, CHAT, GIFTS, CATALOG, MAX_GIFTS, BOX_MAX, KIND_MAX, UNLOCK_BY, POINTS, matches, chosung };
 });

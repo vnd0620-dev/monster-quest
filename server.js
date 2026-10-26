@@ -70,6 +70,7 @@ setInterval(() => {
   for (const ws of wss.clients) { if (!ws.alive) { ws.terminate(); continue; } ws.alive = false; ws.ping(); }
 }, 30000).unref();
 setInterval(() => engine.sweep(6 * 3600 * 1000), 10 * 60 * 1000).unref();
+setInterval(() => engine.botTick(), 1000).unref(); // 가상 친구 움직이기
 
 server.listen(PORT, () => {
   const ip = lanAddress();

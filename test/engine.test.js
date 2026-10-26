@@ -265,18 +265,56 @@ test('새 게임을 시작하면 지난 게임의 추가 문제는 이어지지 
   assert.equal(s.P(a).twin, null);
 });
 
-test('친구 힌트 열림: 1번 틀려서는 안 열리고(내 1차 힌트 먼저), 2번 틀리면 열린다', () => {
+test('친구 힌트 열림: 틀린 보기 지우기는 1번, 개념·풀이 힌트는 2번 틀리면 열린다', () => {
   const s = setup(2); toPlaying(s, true);
   const [a, b] = s.kids;
   finishMine(s, a);
   s.room.groups[0].box.push({ id: 'k1', kind: 'concept', from: '학생1', fromPid: s.P(a).pid });
+  assert.equal(b.last('state').play.q.canTake, false, '처음엔 혼자 생각');
   wrong(s, b);
   assert.equal(b.last('state').play.q.steps.length, 1, '내 1차 힌트');
-  assert.equal(b.last('state').play.q.canTake, false);
-  assert.equal(a.last('state').play.helpWanted, false);
+  assert.deepEqual(b.last('state').play.q.canKinds, ['elim'], '1번 틀리면 보기 지우기만');
+  s.eng.handle(b, { t: 'take', kind: 'concept' });
+  assert.equal(cur(s, b).gifts.length, 0, '개념 힌트는 아직 못 씀');
   wrong(s, b);
-  assert.equal(b.last('state').play.q.canTake, true);
-  assert.equal(a.last('state').play.helpWanted, true);
+  assert.deepEqual(b.last('state').play.q.canKinds, ['concept', 'step'], '2번 틀리면 보기 2개라 지우기는 못 쓰고 나머지 둘');
+  s.eng.handle(b, { t: 'take', kind: 'concept' });
+  assert.equal(cur(s, b).gifts.length, 1);
+});
+
+test('귀한 힌트: 1번 틀린 뒤 보기 지우기를 쓰면 오답 하나가 지워지고, 기록에 쓸 때 틀린 횟수가 남는다', () => {
+  const s = setup(2); toPlaying(s, true);
+  const [a, b] = s.kids;
+  finishMine(s, a);
+  s.room.groups[0].box.push({ id: 'e1', kind: 'elim', from: '학생1', fromPid: s.P(a).pid });
+  wrong(s, b);
+  s.eng.handle(b, { t: 'take', kind: 'elim' });
+  const c = cur(s, b);
+  assert.equal(c.gifts.length, 1); assert.equal(c.eliminated.length, 1);
+  assert.notEqual(c.eliminated[0], c.answer);
+  right(s, b);
+  s.eng.handle(s.teacher, { t: 'tresearch' });
+  const gf = s.teacher.last('tresearch').gifts[0];
+  assert.equal(gf.wrongBefore, 1); assert.equal(gf.solved, true);
+});
+
+test('스테이지마다 종류별 한도: 보기 지우기 2 · 개념 4 · 풀이 4, 다 차면 다른 종류만, 모두 차면 포인트만', () => {
+  const s = setup(2); toPlaying(s, true);
+  const [a] = s.kids;
+  const g = s.room.groups[0], pa = s.P(a);
+  finishMine(s, a);
+  const make = kind => { s.eng.handle(a, { t: 'twinpick', diff: 1 }); s.eng.handle(a, { t: 'twin', tid: pa.twin.id, text: pa.twin.answers[0] }); if (pa.twin && pa.twin.state === 'reward') { const al = a.last('state').play.twin.allowed; s.eng.handle(a, { t: 'hintpick', kind: kind || al[0] }); return al; } return null; };
+  const seen = [];
+  for (let i = 0; i < 10; i++) seen.push(make());
+  assert.deepEqual({ ...g.made }, { elim: 2, concept: 4, step: 4 });
+  assert.equal(g.box.length, 10);
+  assert.ok(seen.slice(6).every(al => al.indexOf('elim') < 0), '보기 지우기 2개가 차면 고를 수 없음');
+  const caps = a.last('state').group.boxKinds.map(k => [k.kind, k.made, k.max]);
+  assert.deepEqual(caps, [['elim', 2, 2], ['concept', 4, 4], ['step', 4, 4]]);
+  assert.equal(a.last('state').group.boxFull, true);
+  const before = pa.points;
+  assert.equal(make(), null, '모두 차면 힌트 고르기 없음');
+  assert.equal(pa.points - before, 10, '포인트만');
 });
 
 test('친구 힌트 3종: 틀린 보기 지우기·개념 힌트·풀이 과정 살펴보기 (내 힌트와 겹치지 않음)', () => {
@@ -556,13 +594,13 @@ test('대기실(레벨 테스트 전)에서도 상점을 쓸 수 있고, 아이�
   assert.ok(s.P(k).owned.includes('h_ribbon'));
 });
 
-test('힌트 상자(9개)가 가득 차도 추가 문제는 계속 풀고, 맞히면 포인트(10점)만 받는다', () => {
+test('힌트 상자(10개)가 가득 차도 추가 문제는 계속 풀고, 맞히면 포인트(10점)만 받는다', () => {
   const s = setup(2); toPlaying(s, true);
   const [a] = s.kids;
   const g = s.room.groups[0];
   finishMine(s, a);
-  for (let i = 0; i < 9; i++) g.box.push({ id: 'f' + i, kind: 'concept', from: 'x', fromPid: 'x' });
-  assert.equal(a.last('state').group.boxMax, 9);
+  for (let i = 0; i < 10; i++) g.box.push({ id: 'f' + i, kind: 'concept', from: 'x', fromPid: 'x' });
+  assert.equal(a.last('state').group.boxMax, 10);
   s.eng.handle(a, { t: 'twinpick', diff: 1 });
   assert.equal(s.P(a).twin.state, 'open', '가득 차도 추가 문제를 풀 수 있음');
   const before = s.P(a).points, extra = s.P(a).stats.extra;
@@ -570,16 +608,16 @@ test('힌트 상자(9개)가 가득 차도 추가 문제는 계속 풀고, 맞�
   assert.equal(s.P(a).points - before, 10, '10점만');
   assert.equal(s.P(a).stats.extra, extra + 1, '추가 문제 기록은 남음');
   assert.equal(s.P(a).twin.state, 'choose', '힌트 고르기 없이 다음 추가 문제로');
-  assert.equal(g.box.length, 9);
+  assert.equal(g.box.length, 10);
   // 힌트를 얻은 뒤 그사이 상자가 가득 찬 경우: 넣지 않고 다음으로
-  g.box.length = 8;
+  g.box.length = 9;
   s.eng.handle(a, { t: 'twinpick', diff: 1 });
   s.eng.handle(a, { t: 'twin', tid: s.P(a).twin.id, text: s.P(a).twin.answers[0] });
   assert.equal(s.P(a).twin.state, 'reward');
   g.box.push({ id: 'z', kind: 'elim', from: 'x', fromPid: 'x' });
   const pts = s.P(a).points;
   s.eng.handle(a, { t: 'hintpick', kind: 'step' });
-  assert.equal(g.box.length, 9); assert.equal(s.P(a).points, pts, '추가 점수 없음');
+  assert.equal(g.box.length, 10); assert.equal(s.P(a).points, pts, '추가 점수 없음');
   assert.equal(s.P(a).twin.state, 'choose');
 });
 
@@ -641,11 +679,11 @@ test('학생은 교사 명령을 보낼 수 없다 / 교사 새로고침 복귀'
 
 test('설정: 준비 중인 과목·단원은 고를 수 없고, 숫자는 범위 안으로', () => {
   const s = setup(0);
-  s.eng.handle(s.teacher, { t: 'tsettings', settings: Object.assign({}, s.room.settings, { subject: 'social', unit: 'graph', size: 99, stages: 0 }) });
+  s.eng.handle(s.teacher, { t: 'tsettings', settings: Object.assign({}, s.room.settings, { subject: 'social', unit: 'democ', size: 99, stages: 0 }) });
   const st = s.room.settings;
   assert.equal(st.subject, 'math'); assert.equal(st.unit, 'frac');
   assert.equal(st.size, 4); assert.equal(st.stages, 2, '범위 밖 값은 무시');
-  for (const unit of ['prism', 'dec', 'ratio']) { s.eng.handle(s.teacher, { t: 'tsettings', settings: Object.assign({}, s.room.settings, { unit }) }); assert.equal(s.room.settings.unit, unit, unit + ' 고를 수 있음'); }
+  for (const unit of ['prism', 'dec', 'ratio', 'graph', 'cube']) { s.eng.handle(s.teacher, { t: 'tsettings', settings: Object.assign({}, s.room.settings, { unit }) }); assert.equal(s.room.settings.unit, unit, unit + ' 고를 수 있음'); }
 });
 
 test('난이도 자동: 레벨 1은 쉬운 문제, 레벨 4는 어려운 문제', () => {
@@ -862,4 +900,40 @@ test('협력 리포트: 게임 중에도 모든 표 항목이 들어 있다', ()
   for (const k of ['meta', 'summary', 'bands', 'groups', 'students', 'gifts', 'survey', 'areaNames']) assert.ok(k in R, k);
   assert.equal(R.bands.length, 2);
   assert.equal(R.survey.length, 5);
+});
+
+test('가상 친구: 대기실에서만 넣을 수 있고, 레벨이 고르게 나오며, 스스로 끝까지 풀고, 협력 리포트에서는 빠진다', () => {
+  const s = setup(1, { stages: 2, perStage: 2, size: 3 });
+  s.eng.handle(s.kids[0], { t: 'tbots', n: 3 });
+  assert.equal(s.room.players.size, 1, '학생은 가상 친구를 넣을 수 없음');
+  s.eng.handle(s.teacher, { t: 'tbots', n: 5 });
+  const bots = [...s.room.players.values()].filter(p => p.bot);
+  assert.equal(bots.length, 5);
+  assert.ok(bots.every(p => p.name.startsWith('🤖 ') && p.online && p.num > 40), '🤖 표시, 높은 번호');
+  const k = s.kids[0], me = s.P(k);
+  s.eng.handle(s.teacher, { t: 'tdiag' }); s.flush();
+  const tick = n => { for (let i = 0; i < n; i++) { s.clock.t += 1000; s.eng.botTick(); s.flush(); } };
+  while (!me.diag.done) { const q = me.diag.qs[me.diag.idx]; s.eng.handle(k, { t: 'answer', qid: q.id, choice: q.answer }); }
+  for (let i = 0; i < 600 && s.room.phase === 'diag'; i++) tick(1);
+  assert.equal(s.room.phase, 'grouped', '가상 친구도 레벨 테스트를 끝냄');
+  s.eng.handle(s.teacher, { t: 'tbots', n: 2 });
+  assert.equal([...s.room.players.values()].filter(p => p.bot).length, 5, '대기실이 아니면 더 넣지 않음');
+  s.eng.handle(s.teacher, { t: 'tstart' }); s.flush();
+  for (let i = 0; i < 3000 && !s.room.groups.every(g => g.done); i++) {
+    tick(1);
+    const c = cur(s, k);
+    if (c && !me.stageDone && i % 20 === 0) right(s, k);
+    const g = s.room.groups.find(x => x.id === me.group);
+    if (k.last('state').group && k.last('state').group.ready && i % 5 === 0) s.eng.handle(k, { t: 'attack', stage: g.stage });
+    s.flush();
+  }
+  assert.ok(s.room.groups.every(g => g.done), '모든 모둠이 최종 보스까지');
+  const made = bots.reduce((a, p) => a + Object.values(p.made || {}).reduce((x, y) => x + y, 0), 0);
+  assert.ok(made > 0, '가상 친구도 힌트를 만듦');
+  s.eng.handle(s.teacher, { t: 'tresearch' });
+  const R = s.teacher.last('tresearch');
+  assert.equal(R.students.length, 1, '리포트에는 실제 학생만');
+  assert.equal(R.summary.bots, 5);
+  assert.ok(R.gifts.every(e => e.toNum === 1), '가상 친구가 받은 힌트는 빠짐');
+  assert.ok(R.groups.reduce((a, g) => a + g.bots, 0) === 5);
 });

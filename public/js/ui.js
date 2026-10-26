@@ -12,7 +12,7 @@
     return esc(t)
       .replace(/(\d+) (\d+)\/(\d+)/g, (_, w, n, d) => `<span class="mixed">${w}${fracHtml(n, d)}</span>`)
       .replace(/(\d+)\/(\d+)/g, (_, n, d) => fracHtml(n, d))
-      .replace(/\u0000(\d+)\u0000/g, (_, i) => `<span class="fig-wrap">${window.MQFigures ? window.MQFigures.render(figs[+i]) : ''}</span>`);
+      .replace(/\u0000(\d+)\u0000/g, (_, i) => `<span class="fig-wrap fig-${figs[+i].split(':')[0]}">${window.MQFigures ? window.MQFigures.render(figs[+i]) : ''}</span>`);
   }
 
   // 모두 똑같은 '용사' 역할. 번호마다 얼굴만 다르고 레벨은 드러내지 않습니다.
@@ -73,12 +73,10 @@
       : a.level === 'na' ? `<p class="crit-now"><b>목표</b> ${esc(a.criteria.high)}</p>` : `<p class="crit-now"><b>지금 나의 모습</b> ${esc(a.criterion)}</p>`;
     if (!teacher) return `<article class="area-card stu lv-${a.level}"><header>${lvBadge(a.level)}<h4>${esc(a.name)}</h4></header>
       <p class="concept big">📗 <b>개념 정리</b> ${math(a.concept)}</p>
-      ${crit}
       ${mistakes}
       <p class="tip"><b>다음에 해 볼 것</b> ${esc(a.studentTip)}</p>
       <div class="card-extra">${a.level === 'na' ? '<p class="small muted">이 영역은 푼 문제가 적어서 수준을 정하지 않았어요.</p>' : ''}
-      ${a.needHard ? '<p class="small hard">⭐ 도전(상) 문제를 한 번에 풀면 한 단계 더 올라갈 수 있어요!</p>' : ''}</div>
-      <p class="evid">${evidence}</p></article>`;
+      ${a.needHard ? '<p class="small hard">⭐ 도전(상) 문제를 한 번에 풀면 한 단계 더 올라갈 수 있어요!</p>' : ''}</div></article>`;
     return `<article class="area-card lv-${a.level}"><header>${lvBadge(a.level, teacher)}<h4>${esc(a.name)}</h4>${teacher ? `<span class="std-code">${esc(a.std)}</span>` : ''}</header>
       ${crit}
       <p class="evid">${evidence}</p>

@@ -226,7 +226,7 @@
       const prev = S.prevHp && S.prevHp.gid === g.id && S.prevHp.stage === g.stage ? S.prevHp.pct : pct;
       const stageDots = Array.from({ length: g.stages }, (_, i) => `<i class="${i + 1 < g.stage || g.done ? 'on' : i + 1 === g.stage ? 'now' : ''}">${i + 1 < g.stage || g.done ? '✓' : i + 1 === g.stages ? '👑' : i + 1}</i>`).join('');
       return `<section class="arena ${g.monster.boss ? 'is-boss' : ''}" aria-label="몬스터 전투" id="s-arena">
-        <div class="arena-head"><span class="tag">🛡️ ${esc(g.name)}</span><span class="tag box-tag" title="모둠 힌트 상자">🎁 힌트 상자 ${g.box.length}</span><span class="stages" aria-label="스테이지">${stageDots}</span></div>
+        <div class="arena-head"><span class="tag">🛡️ ${esc(g.name)}</span><span class="tag box-tag" title="모둠 힌트 상자 · 이번 스테이지에 만든 수/한도">🎁 힌트 상자 ${g.box.length} <span class="kind-caps">${kindCaps(g)}</span></span><span class="stages" aria-label="스테이지">${stageDots}</span></div>
         <div class="mon-wrap" id="s-monwrap">${monsterImg(g.monster, null, g.done ? 'defeated' : '')}</div>
         <div class="mon-name">${g.monster.boss ? '<span class="boss-tag">BOSS</span> ' : ''}${esc(g.monster.name)}</div>
         <div class="hp" role="meter" aria-label="몬스터 체력" aria-valuemin="0" aria-valuemax="${g.hpMax}" aria-valuenow="${g.hp}"><div class="hp-fill" style="width:${prev}%" data-to="${pct}"></div><span>HP ${g.hp} / ${g.hpMax}</span></div>
@@ -234,12 +234,15 @@
       </section>`;
     }
 
+    // 이번 스테이지에 종류별로 만든 수/한도: ✂️ 1/2 · 📗 3/4 · 🪜 2/4
+    const kindCaps = g => (g.boxKinds || []).map(k => `<span class="kc ${k.made >= k.max ? 'full' : ''}">${GIFT_ICON[k.kind] || '🎁'} ${k.made || 0}/${k.max}</span>`).join('');
     // 친구 힌트 3종류 버튼: 누가 넣었는지는 보이지 않고, 종류만 골라요.
     function kindButtons(g, q) {
       return `<div class="gift-row">${(g.boxKinds || []).map(k => {
         const elimNo = k.kind === 'elim' && !q.elimOk;
-        const off = !k.count || elimNo;
-        const note = !k.count ? '상자에 없어요' : elimNo ? '보기가 2개라 못 써요' : GIFT_DESC[k.kind] || '';
+        const locked = !elimNo && q.canKinds && q.canKinds.indexOf(k.kind) < 0;
+        const off = !k.count || elimNo || locked;
+        const note = !k.count ? '상자에 없어요' : elimNo ? '보기가 2개라 못 써요' : locked ? `${k.unlock}번 틀리면 쓸 수 있어요` : `상자에 ${k.count}개 · ${GIFT_DESC[k.kind] || ''}`;
         return `<button type="button" class="gift-btn" data-act="take" data-k="${esc(k.kind)}" ${off ? 'disabled' : ''}><span class="gi" aria-hidden="true">${GIFT_ICON[k.kind] || '🎁'}</span>${esc(k.label)}<small>${esc(note)}</small></button>`;
       }).join('')}</div>`;
     }
@@ -248,7 +251,8 @@
       const q = st.play.q, g = st.group;
       if (S.selQ !== q.id) { S.sel = null; S.selQ = q.id; }
       const wrongNow = S.justWrong; S.justWrong = false;
-      const boxOffer = q.canTake && g.box.length && !q.gifts.length
+      const usable = (g.boxKinds || []).some(k => k.count && (q.canKinds || []).indexOf(k.kind) >= 0);
+      const boxOffer = q.canTake && usable && !q.gifts.length
         ? `<div class="box-offer"><p>🎁 <b>모둠 힌트 상자</b>에 친구들이 만든 힌트가 있어요. 필요하면 <b>하나만</b> 골라 써요. <span class="muted small">(누르기 전에는 쓰이지 않아요)</span></p>${kindButtons(g, q)}</div>` : '';
       return `<section class="s-card q-card ${wrongNow ? 'shake' : ''}">
         <div class="q-top"><p class="q-label">나의 문제 ${st.play.qi + 1} / ${st.play.per}</p><span class="q-area">${esc(q.areaName)}</span></div>
@@ -297,13 +301,15 @@
       const tw = st.play.twin;
       if (!tw || st.group.done) return '';
       if (st.group.ready && tw.state === 'choose') return ''; // 합동 공격 준비가 되면 새 추가 문제는 고르지 않음
-      const boxFull = st.group.box.length >= (st.group.boxMax || 6);
+      const boxFull = !!st.group.boxFull;
+      const capOf = k => (st.group.boxKinds || []).find(x => x.kind === k) || { made: 0, max: 0 };
       const readyNote = st.group.ready ? '<p class="ready-note">⚔️ 합동 공격 준비 완료! 풀던 추가 문제는 마저 풀어도 돼요. 공격하면 다음 스테이지에서 이어서 풀 수 있어요.</p>' : '';
       if (tw.state === 'choose') {
         return `<section class="s-card twin-card">
           <h3>📚 추가 문제 풀이로 힌트 획득하기</h3>
           <p class="small muted">추가 문제를 맞히면 힌트를 하나 얻어 <b>모둠 힌트 상자</b>에 넣을 수 있어요. 난이도를 골라 보세요.</p>
-          ${boxFull ? `<p class="box-full">🎁 힌트 상자가 가득 찼어요(${st.group.boxMax || 9}개). 지금은 맞히면 포인트만 받아요!</p>` : ''}
+          <p class="small cap-line">이번 스테이지 힌트: ${kindCaps(st.group)}</p>
+          ${boxFull ? `<p class="box-full">🎁 이번 스테이지 힌트를 모두 만들었어요(${st.group.boxMax || 10}개). 지금은 맞히면 포인트만 받아요!</p>` : ''}
           <div class="diff-row">${[3, 2, 1].map(d => `<button type="button" class="diff-btn d${d}" data-act="twinpick" data-d="${d}"><b>${DIFF_NAME[d]}</b><small>${['', '기본', '보통', '도전'][d]}</small></button>`).join('')}</div>
         </section>`;
       }
@@ -324,9 +330,9 @@
       return `<section class="s-card twin-card reward">
         <h3>🎁 힌트를 얻었어요!</h3>${readyNote}
         <p class="small">어떤 힌트를 <b>모둠 힌트 상자</b>에 넣을까요? 문제를 어려워하는 친구가 꺼내 쓸 수 있어요.</p>
-        ${boxFull ? `<p class="box-full">🎁 그사이 힌트 상자가 가득 찼어요. 이번 문제는 포인트만 받아요.</p><button type="button" class="btn btn-gold" data-act="hintpick" data-k="${esc((tw.allowed || ['concept'])[0])}">확인하고 다음 추가 문제로</button>` : `
-        <div class="gift-row">${Object.keys(kinds).map(k => { const ok = !boxFull && (!tw.allowed || tw.allowed.indexOf(k) >= 0); return `<button type="button" class="gift-btn" data-act="hintpick" data-k="${k}" ${ok ? '' : 'disabled'}><span class="gi" aria-hidden="true">${GIFT_ICON[k] || '🎁'}</span>${esc(kinds[k])}<small>${ok ? esc(GIFT_DESC[k] || '') : boxFull ? '상자가 가득 찼어요' : '🔒 다른 힌트를 먼저 만들어요'}</small></button>`; }).join('')}</div>`}
-        <p class="muted small">힌트는 3종류를 골고루 만들어요. 아직 안 만든 종류만 고를 수 있어요.</p>
+        ${boxFull ? `<p class="box-full">🎁 그사이 이번 스테이지 힌트를 모두 만들었어요. 이번 문제는 포인트만 받아요.</p><button type="button" class="btn btn-gold" data-act="hintpick" data-k="${esc((tw.allowed || ['concept'])[0])}">확인하고 다음 추가 문제로</button>` : `
+        <div class="gift-row">${Object.keys(kinds).map(k => { const cap = capOf(k), capped = cap.max && cap.made >= cap.max, ok = !boxFull && !capped && (!tw.allowed || tw.allowed.indexOf(k) >= 0); return `<button type="button" class="gift-btn" data-act="hintpick" data-k="${k}" ${ok ? '' : 'disabled'}><span class="gi" aria-hidden="true">${GIFT_ICON[k] || '🎁'}</span>${esc(kinds[k])}<small>${ok ? esc(GIFT_DESC[k] || '') : capped ? '이번 스테이지는 다 만들었어요' : boxFull ? '상자가 가득 찼어요' : '🔒 다른 힌트를 먼저 만들어요'}</small><small class="cap">이번 스테이지 ${cap.made}/${cap.max}</small></button>`; }).join('')}</div>`}
+        <p class="muted small">힌트는 3종류를 골고루 만들어요. 스테이지마다 ✂️ 보기 지우기 2개 · 📗 개념 4개 · 🪜 풀이 4개까지 만들 수 있어요. 틀린 보기 지우기는 귀한 힌트라 친구가 1번만 틀려도 쓸 수 있어요.</p>
       </section>`;
     }
 

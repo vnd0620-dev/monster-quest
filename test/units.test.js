@@ -10,10 +10,10 @@ const READY = QB.subjects.flatMap(sj => sj.units.filter(u => u.ready));
 const all = u => u.areas.flatMap(a => [...a.questions.map(q => ({ a, it: q, main: true })), ...a.twins.map(t => ({ a, it: t, main: false }))]);
 const near = (x, y) => Math.abs(x - y) < 1e-9;
 
-test('준비된 단원: 1~4단원, 5·6단원은 준비 중', () => {
-  assert.deepEqual(READY.map(u => u.id), ['frac', 'prism', 'dec', 'ratio']);
+test('준비된 단원: 수학 1~6단원 모두', () => {
+  assert.deepEqual(READY.map(u => u.id), ['frac', 'prism', 'dec', 'ratio', 'graph', 'cube']);
   const math = QB.subjects.find(s => s.id === 'math');
-  assert.deepEqual(math.units.filter(u => !u.ready).map(u => u.id), ['graph', 'cube']);
+  assert.deepEqual(math.units.filter(u => !u.ready).map(u => u.id), []);
 });
 
 for (const u of READY) {
@@ -189,4 +189,135 @@ test('전개도 그림: 올바른 전개도는 면 수가 n+2, 틀린 전개도�
     const faces = (svg.match(/<polygon/g) || []).length;
     assert.equal(faces, k === 'few' ? n + 1 : k === 'more' ? n + 3 : n + 2, `net:${n}:${k} 면 수`);
   }
+});
+
+// ───── 5단원: 그래프 그림의 값에서 다시 계산 ─────
+test('5단원 여러 가지 그래프: 정답이 그래프 그림·자료와 맞음', () => {
+  const u = QB.unitById('graph');
+  const TXT = {
+    'gm-9': '띠 전체가 100%가 되어야 하기 때문에', 'gp-10': '전체에 대한 각 부분의 비율을 나타낸다',
+    'gc-1': '꺾은선그래프', 'gc-2': '띠그래프, 원그래프', 'gc-3': '막대그래프', 'gc-4': '꺾은선그래프', 'gc-7': '꺾은선그래프 — 시간에 따른 변화를 잘 나타낸다', 'gc-8': '한 달 동안 매일 잰 강아지의 몸무게',
+    'gc-t1': '꺾은선그래프', 'gc-t2': '원그래프', 'gc-t3': '띠그래프', 'gc-t4': '막대그래프', 'gc-t8': '막대그래프',
+  };
+  let n = 0, figs = 0, mains = 0;
+  for (const { it, main } of all(u)) {
+    const ans = it.answer || it.answers[0], m = it.meta || {};
+    const sp = FIG.specsIn(it.text)[0], f = sp ? FIG.parse(sp) : null;
+    if (main) { mains++; if (sp || FIG.specsIn(it.answer).length) figs++; }
+    let e = null;
+    if (f && f.type !== 'band2') {
+      const v = f.vals, nm = f.names, sorted = v.map((x, i) => [x, i]).sort((a, b) => b[0] - a[0]);
+      assert.equal(new Set(v).size === v.length || ['times', 'pct', 'count', 'countdiff', 'countsum'].includes(m.ask) || !m.ask, true, it.id + ' 최대·최소를 묻는데 값이 겹침');
+      e = { pct: v[m.i], max: nm[sorted[0][1]], min: nm[sorted[sorted.length - 1][1]], second: nm[sorted[1][1]], diffp: v[m.i] - v[m.j], times: v[m.i] / v[m.j], sum: v[m.i] + v[m.j], count: m.total * v[m.i] / 100, countdiff: m.total * (v[m.i] - v[m.j]) / 100, countsum: m.total * (v[m.i] + v[m.j]) / 100 }[m.ask];
+      if (m.ask === 'max' || m.ask === 'min' || m.ask === 'second') assert.ok(sorted[0][0] !== sorted[1][0] && sorted[sorted.length - 1][0] !== sorted[sorted.length - 2][0], it.id + ' 순서가 하나로 정해짐');
+      // 문장 속 항목 이름이 그림에 있는지 (그림과 문제가 같은 자료)
+      for (const w of (it.text.replace(FIG.TOKEN, '').match(/[가-힣]+/g) || [])) if (FIG.SETS[f.set].includes(w)) assert.ok(nm.includes(w), it.id + ' 문장 속 ' + w + ' 가 그림에 없음');
+    } else if (f && f.type === 'band2') {
+      const d = f.a.map((x, i) => f.b[i] - x);
+      if (m.ask === 'dec2') { const dec = d.map((x, i) => [x, i]).filter(x => x[0] < 0); assert.equal(dec.length, 1, it.id + ' 줄어든 항목은 하나'); e = f.names[dec[0][1]]; }
+      if (m.ask === 'inc2') e = d[m.i];
+    } else if (m.ask === 'mk') e = m.n / m.total * 100;
+    else if (m.ask === 'mkitem') { // 문장 속 자료 표에서 다시 계산
+      const pairs = [...it.text.matchAll(/([가-힣]+) (\d+)명/g)].map(x => [x[1], +x[2]]);
+      const total = pairs.reduce((a, x) => a + x[1], 0), hit = pairs.find(x => x[0] === m.item);
+      assert.ok(hit && pairs.length >= 3, it.id + ' 자료 표 읽기'); e = hit[1] / total * 100;
+    } else if (m.ask === 'len') { const k = it.text.match(/길이가 (\d+) cm인 띠그래프.*?(\d+)%인/); assert.deepEqual([+k[1], +k[2]], [m.L, m.p], it.id); e = m.L * m.p / 100; }
+    else if (m.ask === 'pick') {
+      const want = m.vals || m.counts.map(c => c / m.counts.reduce((a, b) => a + b, 0) * 100);
+      const opts = [it.answer, ...it.wrongs].map(x => FIG.parse(FIG.specsIn(x)[0]));
+      assert.deepEqual(opts[0].vals, want, it.id + ' 정답 그래프');
+      assert.ok(opts.slice(1).every(o => o.vals.join() !== want.join()), it.id + ' 오답 그래프는 다름');
+      assert.ok(opts.every(o => o.type === opts[0].type && o.set === opts[0].set), it.id);
+      if (m.counts) { const pairs = [...it.text.matchAll(/([가-힣]+) (\d+)명/g)].map(x => +x[2]); assert.deepEqual(pairs, m.counts, it.id + ' 문장 자료'); }
+      n++; continue;
+    } else if (m.val != null) e = m.val;
+    else if (TXT[it.id]) e = TXT[it.id];
+    else if (!sp && !m.ask && /(가|나|다|라) 항목이 (\d+)%/.test(it.text)) e = null;
+    // 문장 속 계산 (gb-10 · gm-4 · gm-t2: 나머지 백분율)
+    if (it.id === 'gb-10' || it.id === 'gm-4' || it.id === 'gm-t2') { const ps = [...it.text.matchAll(/(\d+)%/g)].map(x => +x[1]); assert.equal(e, 100 - ps.reduce((a, b) => a + b, 0), it.id); }
+    if (it.id === 'gb-t4' || it.id === 'gp-t5') { const k = it.text.match(/(\d+)명/g).map(x => parseInt(x)), p = +it.text.match(/(\d+)%/)[1]; assert.equal(e, k[0] * p / 100, it.id); }
+    if (it.id === 'gc-9' || it.id === 'gc-10') { // 해석 문항: 정답 문장만 참
+      const v = f.vals;
+      if (it.id === 'gc-9') { assert.ok(v[0] === Math.max(...v)); assert.ok(v[1] / v[2] !== 2 && v[0] + v[1] !== 50 && v[3] !== Math.max(...v)); }
+      if (it.id === 'gc-10') { assert.equal(200 * v[2] / 100, 40); assert.notEqual(200 * v[0] / 100, 40); assert.notEqual(200 * v[1] / 100, 25); assert.notEqual(v[3] / v[2], 2); }
+      n++; continue;
+    }
+    assert.ok(e != null, it.id + ' 검사 기준 없음');
+    if (typeof e === 'string') assert.ok(ans.replace(/\s/g, '') === e.replace(/\s/g, ''), `${it.id}: ${ans} ≠ ${e}`);
+    else { const got = numVal(ans); assert.ok(got != null && near(got, e), `${it.id}: ${ans} ≠ ${e}`); }
+    n++;
+  }
+  assert.equal(n, 72);
+  assert.ok(figs / mains >= 0.5, `그림 문항 비율 ${figs}/${mains}`);
+});
+
+// ───── 6단원: 그림·문장의 길이에서 공식으로 다시 계산 ─────
+test('6단원 직육면체의 부피와 겉넓이: 정답이 공식·그림과 맞음', () => {
+  const u = QB.unitById('cube');
+  const TXT = { 'cc-5': '세제곱센티미터', 'cv-9': '(가로) × (세로) × (높이)', 'cu-8': '1 m', 'cs-9': '(한 꼭짓점에서 만나는 세 면의 넓이의 합) × 2' };
+  const toM = (v, unit) => (unit === 'cm' ? v / 100 : v);
+  let n = 0, figs = 0, mains = 0;
+  for (const { it, main } of all(u)) {
+    const ans = it.answer || it.answers[0], m = it.meta || {};
+    const sps = FIG.specsIn(it.text), f = sps.length ? FIG.parse(sps[0]) : null;
+    if (main) { mains++; if (sps.length) figs++; }
+    // 가로·세로·높이 (그림 또는 문장)
+    let dims = null, unit = 'cm';
+    if (f && f.type === 'cub') { dims = [f.a, f.b, f.c]; unit = f.unit; }
+    else if (f && f.type === 'cubes') dims = [f.a, f.b, f.c];
+    else {
+      const k = it.text.match(/가로 (\d+) (cm|m), 세로 (\d+) (cm|m), 높이 (\d+) (cm|m)/);
+      if (k) { const us = [k[2], k[4], k[6]]; const mixed = new Set(us).size > 1 || /몇 m³/.test(it.text); dims = mixed || /몇 m³/.test(it.text) ? [toM(+k[1], k[2]), toM(+k[3], k[4]), toM(+k[5], k[6])] : [+k[1], +k[3], +k[5]]; unit = mixed || /몇 m³/.test(it.text) ? 'm' : us[0]; }
+      const c = it.text.match(/한 모서리의 길이가 (\d+) cm인 정육면체/); if (c) dims = [+c[1], +c[1], +c[1]];
+      const L = it.text.match(/가로 (\d+)개, 세로 (\d+)개, 높이 (\d+)층/); if (L) dims = [+L[1], +L[2], +L[3]];
+    }
+    const vol = dims ? dims[0] * dims[1] * dims[2] : null, surf = dims ? 2 * (dims[0] * dims[1] + dims[1] * dims[2] + dims[0] * dims[2]) : null;
+    let e = null;
+    switch (m.ask) {
+      case 'cubes': case 'layers': case 'vol': e = vol; break;
+      case 'surf': e = surf; break;
+      case 'volcm': assert.equal(unit, 'm', it.id); e = vol * 1000000; break;
+      case 'cubesPlus': e = vol + m.plus; assert.ok(it.text.includes(Math.abs(m.plus) + ' cm³ 더 ' + (m.plus > 0 ? '큰' : '작은')), it.id); break;
+      case 'bigger': case 'diff2': {
+        assert.equal(f.type, 'cubes2', it.id);
+        if (m.ask === 'diff2') e = Math.abs(f.vb - f.va);
+        else e = f.va === f.vb ? '두 부피가 같다' : f.va > f.vb ? '가' : '나';
+        break;
+      }
+      case 'same2': { const [p, q] = sps.map(FIG.parse); const va = p.a * p.b * p.c, vb = q.a * q.b * q.c; e = va === vb ? '두 부피가 같다' : va > vb ? '정육면체가 더 크다' : '직육면체가 더 크다'; break; }
+      case 'missing': { assert.equal(dims.filter(x => x === 0).length, 1, it.id); assert.ok(it.text.includes('부피가 ' + m.V + ' cm³'), it.id); e = m.V / dims.filter(x => x).reduce((a, b) => a * b, 1); break; }
+      case 'cubeEdge': { assert.ok(it.text.includes('부피가 ' + m.V + ' cm³인 정육면체'), it.id); e = Math.round(Math.cbrt(m.V)); assert.equal(e ** 3, m.V, it.id); break; }
+      case 'surfEdge': { assert.ok(it.text.includes('겉넓이가 ' + m.S + ' cm²인 정육면체'), it.id); e = Math.sqrt(m.S / 6); assert.ok(Number.isInteger(e), it.id); break; }
+      case 'face': { e = +it.text.match(/한 면의 넓이가 (\d+) cm²/)[1] * 6; break; }
+      case 'faces3': { e = 2 * [...it.text.matchAll(/(\d+) cm²/g)].reduce((a, x) => a + +x[1], 0); break; }
+      case 'conv': { const k = it.text.match(/^(\d+(?:\.\d+)?) (m³|cm³)는 몇 (cm³|m³)/); e = k[2] === 'm³' ? +k[1] * 1000000 : +k[1] / 1000000; break; }
+      case 'maxvol': { const toVal = x => { const k = x.match(/^(\d+) (m³|cm³)$/); return k[2] === 'm³' ? +k[1] : +k[1] / 1000000; }; const all4 = [it.answer, ...it.wrongs]; assert.ok(all4.every(x => toVal(x) <= toVal(it.answer)) && new Set(all4.map(toVal)).size === 4, it.id); n++; continue; }
+      default: if (m.val != null) e = m.val; else if (TXT[it.id]) e = TXT[it.id];
+    }
+    if (it.id === 'cu-10') assert.equal(e, (100 / 10) ** 3);
+    // 그림의 단위와 정답의 단위가 맞는지
+    if (typeof e === 'number' && /(cm³|m³|cm²)/.test(ans)) { const ask = (it.text.match(/몇 (cm³|m³|cm²)/) || [])[1]; const want = m.ask === 'surf' || m.ask === 'face' || m.ask === 'faces3' ? 'cm²' : ask || (unit === 'm' ? 'm³' : 'cm³'); assert.ok(ans.endsWith(want), `${it.id}: 단위 ${ans} (${want})`); }
+    assert.ok(e != null, it.id + ' 검사 기준 없음');
+    if (typeof e === 'string') assert.ok(ans.replace(/\s/g, '') === e.replace(/\s/g, ''), `${it.id}: ${ans} ≠ ${e}`);
+    else { const got = numVal(ans); assert.ok(got != null && near(got, e), `${it.id}: ${ans} ≠ ${e}`); }
+    // 숫자 오답이 정답과 같은 크기가 아닌지(부피 단위 문항 포함)
+    n++;
+  }
+  assert.equal(n, 72);
+  assert.ok(figs / mains >= 0.4, `그림 문항 비율 ${figs}/${mains}`);
+});
+
+test('5·6단원 새 그림: 띠·원그래프의 칸 수와 백분율, 쌓기나무 개수, 직육면체 길이 글자', () => {
+  const b = FIG.render('band:fruit:n:35:25:20:15:5');
+  assert.equal((b.match(/<rect /g) || []).length - 1, 5, '띠 칸 5개 (테두리 1개 빼고)');
+  for (const v of [35, 25, 20, 15, 5]) assert.ok(b.includes('>' + v + '%<') || b.includes(' ' + v + '%<'), '백분율 ' + v);
+  const p = FIG.render('pie:season:s:20:35:30:15');
+  assert.equal((p.match(/<path /g) || []).length, 4); assert.ok(!/\d+%</.test(p), '눈금만 모드는 백분율 글자 없음');
+  assert.equal(FIG.parse('pie:fruit:n:50:45:5'), null, '원그래프는 10% 미만 조각 없음');
+  assert.equal(FIG.parse('band:fruit:n:50:40'), null, '합이 100이 아니면 안 그림');
+  const c = FIG.render('cubes:3:2:2');
+  assert.equal((c.match(/<polygon/g) || []).length, 3 * 12, '쌓기나무 12개 × 세 면');
+  const k = FIG.render('cub:6:4:0:cm');
+  assert.ok(k.includes('6 cm') && k.includes('4 cm') && k.includes('□ cm'));
+  assert.equal((k.match(/stroke-dasharray/g) || []).length, 3, '보이지 않는 모서리 3개');
 });

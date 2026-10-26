@@ -5,6 +5,12 @@
 //   tiles:빨강:파랑            색 타일
 //   grid:k                    100칸 중 k칸 색칠
 //   bars:a:b                  막대 가·나 (칸 수)
+//   band:묶음:n|s:값…          띠그래프 (n 백분율 표시, s 눈금만) — 값의 합 100
+//   band2:묶음:k:작년값…:올해값…  두 띠그래프 비교
+//   pie:묶음:n|s:값…           원그래프 (둘레 눈금 100칸)
+//   cub:가로:세로:높이:cm|m     직육면체 (0은 모르는 길이 □)
+//   cubes:가로:세로:높이        쌓기나무 (한 개 1 cm³)
+//   cubes2:가…:나…             쌓기나무 가·나 비교
 // 교사·학생 화면과 서버(검사)가 함께 씁니다.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -157,6 +163,117 @@
     return wrap(W, H, body, '막대 그림');
   }
 
+  // ───── 5단원: 띠그래프·원그래프 ─────
+  // 항목 이름 묶음 (그림 자리표에는 영문 이름만 쓸 수 있어서 묶음 이름으로 고름)
+  const SETS = {
+    fruit: ['사과', '포도', '귤', '바나나', '기타'], sport: ['축구', '피구', '농구', '줄넘기', '기타'], pet: ['강아지', '고양이', '햄스터', '물고기', '기타'],
+    go: ['걷기', '자전거', '버스', '자동차', '기타'], season: ['봄', '여름', '가을', '겨울'], subj: ['수학', '체육', '미술', '음악', '기타'],
+    food: ['떡볶이', '피자', '치킨', '김밥', '기타'], land: ['논', '밭', '숲', '주거지', '기타'], trash: ['종이', '플라스틱', '캔', '유리', '기타'],
+    color: ['빨강', '파랑', '노랑', '초록', '기타'], book: ['동화책', '과학책', '만화책', '위인전', '기타'], abc: ['가', '나', '다', '라', '마'],
+  };
+  const PAL = ['#ff9f7a', '#7cc8ff', '#ffd76a', '#9be3a8', '#d3b8ff', '#ffb3d1'];
+  const txt = (x, y, t, size, weight, anchor, color) => `<text x="${f(x)}" y="${f(y)}" font-size="${size}" font-weight="${weight || 400}" text-anchor="${anchor || 'middle'}" fill="${color || INK}" font-family="sans-serif">${t}</text>`;
+  // 띠 하나 그리기 (x0부터 길이 L, 위쪽 y)
+  function bandRow(names, vals, mode, x0, y, L, h) {
+    let body = '', cum = 0;
+    vals.forEach((v, i) => {
+      const x = x0 + L * cum / 100, w = L * v / 100, cx = x + w / 2;
+      body += `<rect x="${f(x)}" y="${y}" width="${f(w)}" height="${h}" fill="${PAL[i % PAL.length]}" stroke="${INK}" stroke-width="1.6"/>`;
+      const nm = names[i], big = w >= 40 || (w >= 30 && nm.length <= 2), fs = w < 40 ? 13 : w >= 66 || nm.length <= 2 ? 17 : 14;
+      if (big) {
+        body += txt(cx, y + (mode === 'n' ? h / 2 - 3 : h / 2 + 6), nm, fs, 700);
+        if (mode === 'n') body += txt(cx, y + h / 2 + 16, v + '%', w < 40 ? 12 : 15, 400);
+      } else { // 좁은 칸은 띠 위에 이름을 씀
+        body += txt(cx, y - 7, nm + (mode === 'n' ? ' ' + v + '%' : ''), 13, 700);
+      }
+      cum += v;
+    });
+    return body;
+  }
+  function ticks(x0, y, L) {
+    let body = line([x0, y], [x0 + L, y], false, INK, 1.4);
+    for (let t = 0; t <= 100; t += 5) { const x = x0 + L * t / 100; body += line([x, y], [x, y + (t % 10 ? 4 : 8)], false, INK, 1.2); if (t % 10 === 0) body += txt(x, y + 23, t, 13); }
+    return body + txt(x0 + L + 16, y + 23, '(%)', 13, 400, 'start');
+  }
+  function band(set, mode, vals) {
+    const names = SETS[set], x0 = 18, L = 340, top = vals.some(v => v * 3.4 < 40) ? 34 : 16, h = 54;
+    const body = bandRow(names, vals, mode, x0, top, L, h) + ticks(x0, top + h + 6, L);
+    return wrap(x0 + L + 52, top + h + 42, body, '띠그래프');
+  }
+  function band2(set, k, vals) { // 작년·올해 두 띠그래프
+    const names = SETS[set], x0 = 56, L = 330, h = 50, a = vals.slice(0, k), b = vals.slice(k);
+    const small = vals.some(v => v * 3.3 < 40), gapTop = small ? 20 : 6;
+    let body = '', y = 14 + gapTop;
+    [['작년', a], ['올해', b]].forEach(([lab, v]) => { body += txt(x0 - 10, y + h / 2 + 5, lab, 15, 700, 'end') + bandRow(names, v, 'n', x0, y, L, h); y += h + gapTop + 14; });
+    body += ticks(x0, y - gapTop - 8, L);
+    return wrap(x0 + L + 52, y + 24, body, '두 띠그래프');
+  }
+  function pie(set, mode, vals) {
+    const names = SETS[set], cx = 160, cy = 158, R = 112, W = 320, H = 318;
+    let body = '', cum = 0;
+    const at = (pct, r) => { const t = -Math.PI / 2 + 2 * Math.PI * pct / 100; return [cx + r * Math.cos(t), cy + r * Math.sin(t)]; };
+    vals.forEach((v, i) => {
+      const a0 = at(cum, R), a1 = at(cum + v, R), large = v > 50 ? 1 : 0;
+      body += `<path d="M${f(cx)},${f(cy)} L${f(a0[0])},${f(a0[1])} A${R},${R} 0 ${large} 1 ${f(a1[0])},${f(a1[1])} Z" fill="${PAL[i % PAL.length]}" stroke="${INK}" stroke-width="1.6"/>`;
+      const m = at(cum + v / 2, R * (v < 15 ? 0.7 : 0.6));
+      body += txt(m[0], m[1] + (mode === 'n' ? -2 : 5), names[i], v < 15 ? 12 : 15, 700);
+      if (mode === 'n') body += txt(m[0], m[1] + 15, v + '%', 13);
+      cum += v;
+    });
+    // 원 둘레 눈금 (1%마다, 10%마다 길게)
+    for (let t = 0; t < 100; t++) { const p1 = at(t, R), p2 = at(t, R + (t % 10 ? 4 : 9)); body += line(p1, p2, false, INK, t % 10 ? 0.8 : 1.4); }
+    for (let t = 0; t < 100; t += 10) { const p = at(t, R + 20); body += txt(p[0], p[1] + 4, t, 11); }
+    body += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="${INK}" stroke-width="1.8"/>`;
+    return wrap(W, H, body, '원그래프');
+  }
+
+  // ───── 6단원: 직육면체·쌓기나무 ─────
+  // cub:가로:세로:높이:단위 (0은 모르는 길이 □)
+  function cuboid(a, b, c, unit) {
+    const show = v => (v ? v : 0), da = show(a) || Math.max(b, c, 3), db = show(b) || Math.max(a, c, 3) * 0.6, dc = show(c) || Math.max(a, b, 3) * 0.7;
+    const kx = 0.55, ky = 0.42; // 세로(안쪽) 방향을 비스듬히
+    const s = Math.min(170 / (da + db * kx), 120 / (dc + db * ky), 34);
+    const w = Math.max(da * s, 26), h = Math.max(dc * s, 24), dx = Math.max(db * s * kx, 14), dy = Math.max(db * s * ky, 11);
+    const x0 = 56, y0 = 22 + dy;
+    const F = [[x0, y0], [x0 + w, y0], [x0 + w, y0 + h], [x0, y0 + h]]; // 앞면 (왼위, 오위, 오아, 왼아)
+    const Bk = F.map(p => [p[0] + dx, p[1] - dy]);
+    let body = `<polygon points="${pts(F)}" fill="${SOFT}"/><polygon points="${pts([F[0], F[1], Bk[1], Bk[0]])}" fill="#fff6d6"/><polygon points="${pts([F[1], Bk[1], Bk[2], F[2]])}" fill="#dff1ff"/>`;
+    // 보이지 않는 모서리 (뒤 왼쪽 아래 꼭짓점에서)
+    body += line(Bk[3], Bk[0], true, INK, 1.6) + line(Bk[3], Bk[2], true, INK, 1.6) + line(Bk[3], F[3], true, INK, 1.6);
+    for (let i = 0; i < 4; i++) body += line(F[i], F[(i + 1) % 4]);
+    body += line(F[0], Bk[0]) + line(F[1], Bk[1]) + line(F[2], Bk[2]) + line(Bk[0], Bk[1]) + line(Bk[1], Bk[2]);
+    const lab = v => (v ? `${v} ${unit}` : `□ ${unit}`);
+    body += txt(x0 + w / 2, y0 + h + 22, lab(a), 15, 700, 'middle', a ? INK : RED);
+    body += txt(x0 - 8, y0 + h / 2 + 5, lab(c), 15, 700, 'end', c ? INK : RED);
+    body += txt(F[2][0] + dx / 2 + 12, F[2][1] - dy / 2 + 14, lab(b), 15, 700, 'start', b ? INK : RED);
+    return wrap(x0 + w + dx + 70, y0 + h + 34, body, '직육면체 그림');
+  }
+  // 쌓기나무 (한 개 1 cm³): 가로 a개 × 세로 b개 × 높이 c층
+  function cubeStack(a, b, c, ox, oy) {
+    const s = 24, dx = 11, dy = 9;
+    let body = '';
+    for (let j = b - 1; j >= 0; j--) for (let k = 0; k < c; k++) for (let i = 0; i < a; i++) {
+      const x = ox + i * s + j * dx, y = oy - k * s - j * dy;
+      const fr = [[x, y], [x + s, y], [x + s, y + s], [x, y + s]];
+      const tp = [[x, y], [x + dx, y - dy], [x + s + dx, y - dy], [x + s, y]];
+      const sd = [[x + s, y], [x + s + dx, y - dy], [x + s + dx, y + s - dy], [x + s, y + s]];
+      body += `<polygon points="${pts(tp)}" fill="#ffe9a8" stroke="${INK}" stroke-width="1.1"/><polygon points="${pts(sd)}" fill="#e7b84a" stroke="${INK}" stroke-width="1.1"/><polygon points="${pts(fr)}" fill="#ffd76a" stroke="${INK}" stroke-width="1.1"/>`;
+    }
+    return { body, w: a * s + b * dx, h: c * s + b * dy };
+  }
+  function cubes(a, b, c) {
+    const st = cubeStack(a, b, c, 18, 0), oy = 14 + (c - 1) * 24 + b * 9;
+    const g = cubeStack(a, b, c, 18, oy);
+    return wrap(st.w + 40, oy + 24 + 16, g.body, '쌓기나무 그림');
+  }
+  function cubes2(A, B) {
+    const hA = (A[2] - 1) * 24 + A[1] * 9, hB = (B[2] - 1) * 24 + B[1] * 9, top = 34 + Math.max(hA, hB);
+    const ga = cubeStack(A[0], A[1], A[2], 22, top), wa = A[0] * 24 + A[1] * 11;
+    const gb = cubeStack(B[0], B[1], B[2], 22 + wa + 48, top), wb = B[0] * 24 + B[1] * 11;
+    const body = txt(22 + wa / 2, 20, '가', 17, 700) + txt(22 + wa + 48 + wb / 2, 20, '나', 17, 700) + ga.body + gb.body;
+    return wrap(22 + wa + 48 + wb + 26, top + 24 + 16, body, '쌓기나무 가와 나');
+  }
+
   // 그림 이름 읽기 (검사용)
   function parse(spec) {
     const p = String(spec).split(':');
@@ -167,6 +284,12 @@
     if (t === 'grid' && a >= 0 && a <= 100) return { type: t, k: a };
     if (t === 'objs' && OBJ[p[1]] && OBJ[p[3]] && +p[2] > 0 && +p[4] > 0 && +p[2] + +p[4] <= 30) return { type: t, a: p[1], r: +p[2], b2: p[3], b: +p[4] };
     if (t === 'bars' && a > 0 && +b > 0 && Math.max(a, +b) <= 12) return { type: t, a, b: +b };
+    const nums = p.slice(3).map(Number), sum = nums.reduce((x, y) => x + y, 0), okVals = (vs, min) => vs.length >= 2 && vs.length <= SETS[p[1]].length && vs.every(v => Number.isInteger(v) && v >= min) && vs.reduce((x, y) => x + y, 0) === 100;
+    if ((t === 'band' || t === 'pie') && SETS[p[1]] && (p[2] === 'n' || p[2] === 's') && okVals(nums, t === 'pie' ? 10 : 5) && sum === 100) return { type: t, set: p[1], names: SETS[p[1]].slice(0, nums.length), mode: p[2], vals: nums };
+    if (t === 'band2' && SETS[p[1]]) { const k = +p[2], vs = p.slice(3).map(Number); if (k >= 2 && vs.length === 2 * k && okVals(vs.slice(0, k), 5) && okVals(vs.slice(k), 5)) return { type: t, set: p[1], names: SETS[p[1]].slice(0, k), k, a: vs.slice(0, k), b: vs.slice(k) }; }
+    if (t === 'cub' && (p[4] === 'cm' || p[4] === 'm')) { const d = [+p[1], +p[2], +p[3]]; if (d.every(v => Number.isInteger(v) && v >= 0 && v <= 200) && d.filter(v => v === 0).length <= 1) return { type: t, a: d[0], b: d[1], c: d[2], unit: p[4] }; }
+    if (t === 'cubes') { const d = [+p[1], +p[2], +p[3]]; if (d[0] >= 1 && d[0] <= 6 && d[1] >= 1 && d[1] <= 4 && d[2] >= 1 && d[2] <= 4) return { type: t, a: d[0], b: d[1], c: d[2], count: d[0] * d[1] * d[2] }; }
+    if (t === 'cubes2') { const d = p.slice(1).map(Number); if (d.length === 6 && d.every(v => Number.isInteger(v) && v >= 1 && v <= 6) && d[1] <= 4 && d[4] <= 4 && d[2] <= 4 && d[5] <= 4) return { type: t, A: d.slice(0, 3), B: d.slice(3), va: d[0] * d[1] * d[2], vb: d[3] * d[4] * d[5] }; }
     return null;
   }
   function render(spec) {
@@ -179,9 +302,15 @@
     if (q.type === 'grid') return grid(q.k);
     if (q.type === 'objs') return objs(q.a, q.r, q.b2, q.b);
     if (q.type === 'bars') return bars(q.a, q.b);
+    if (q.type === 'band') return band(q.set, q.mode, q.vals);
+    if (q.type === 'band2') return band2(q.set, q.k, q.a.concat(q.b));
+    if (q.type === 'pie') return pie(q.set, q.mode, q.vals);
+    if (q.type === 'cub') return cuboid(q.a, q.b, q.c, q.unit);
+    if (q.type === 'cubes') return cubes(q.a, q.b, q.c);
+    if (q.type === 'cubes2') return cubes2(q.A, q.B);
     return '';
   }
   const TOKEN = /\[\[fig:([a-z0-9:]+)\]\]/g;
   const specsIn = text => { const out = []; String(text || '').replace(TOKEN, (_, s) => { out.push(s); return ''; }); return out; };
-  return { render, parse, specsIn, TOKEN };
+  return { render, parse, specsIn, TOKEN, SETS };
 });
