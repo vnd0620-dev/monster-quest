@@ -370,7 +370,7 @@ h1, h2, h3, h4 { font-family: var(--display); font-weight: 400; text-wrap: balan
 .tbl th { color: var(--muted); font-weight: 700; font-size: 13px; }
 .t-set summary { cursor: pointer; font-family: var(--display); font-size: 17px; }
 .t-settings { display: grid; gap: 12px; margin-top: 4px; }
-.set-tabs { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 6px; }
+.set-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .set-tab { cursor: pointer; text-align: left; display: grid; gap: 2px; background: var(--deep); border: 2px solid var(--line); border-radius: 12px; padding: 7px 10px; min-width: 0; }
 .set-tab small { font-size: 12px; color: var(--muted); }
 .set-tab b { font-family: var(--display); font-weight: 400; font-size: 15px; line-height: 1.25; }
@@ -379,6 +379,8 @@ h1, h2, h3, h4 { font-family: var(--display); font-weight: 400; text-wrap: balan
 .set-panel h3 { font-size: 19px; }
 .opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .opts.wide { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+.opts.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 560px) { .set-tabs, .opts.four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .opt { cursor: pointer; text-align: left; display: grid; gap: 2px; background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 10px 12px; }
 .opt b { font-family: var(--display); font-weight: 400; font-size: 18px; }
 .opt small { color: var(--muted); font-size: 13px; }
@@ -704,7 +706,7 @@ h1, h2, h3, h4 { font-family: var(--display); font-weight: 400; text-wrap: balan
 .it-q { width: 74%; margin-right: 18%; background: #fff; color: #2a2350; border-radius: 10px; padding: 7px 8px; font-size: 12px; font-weight: 700; }
 .it-ch { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px; } .it-ch span { border: 1.5px solid #cfc6f5; border-radius: 7px; text-align: center; padding: 3px 0; font-weight: 600; } .it-ch .on { border-color: var(--violet); background: #efe9ff; }
 .it-fairy { position: absolute; right: 2px; bottom: 4px; width: 38px; }
-.it-mon { width: 92px; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .5)); }
+.it-mon { width: 92px; height: 74px; margin-top: 8px; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .5)); }
 .it-hp { position: absolute; left: 10px; right: 10px; top: 8px; height: 12px; border-radius: 6px; background: #3b2c76; overflow: hidden; } .it-hp i { position: absolute; inset: 0 18% 0 0; background: linear-gradient(90deg, #ff5a6e, #ff8a5b); } .it-hp em { position: absolute; inset: 0; font-style: normal; font-size: 9px; text-align: center; line-height: 12px; font-weight: 700; }
 .it-heroes { position: absolute; bottom: 6px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px; font-size: 20px; }
 .it-steps { width: 90%; display: grid; gap: 4px; margin-top: 20px; } .it-st { font-size: 11px; border-radius: 8px; padding: 4px 7px; font-weight: 600; }
@@ -716,7 +718,7 @@ h1, h2, h3, h4 { font-family: var(--display); font-weight: 400; text-wrap: balan
 .it-box { width: 90%; border: 2px dashed #ff8fb0; background: #fff0f5; color: #5a2140; border-radius: 10px; padding: 7px 8px; font-size: 11px; line-height: 1.4; } .it-box b { color: #c2185b; } .it-rule { font-size: 10.5px; margin-top: 4px; color: #7a3a5a; }
 .it-boom { position: absolute; top: 10px; right: 12px; font-size: 24px; font-weight: 900; color: var(--gold); text-shadow: 0 3px 0 #b34a00, 0 0 18px #ff7a00; }
 .it-ready { position: absolute; bottom: 6px; left: 10px; right: 10px; background: linear-gradient(90deg, #ff5a6e, #ff8a5b); border-radius: 9px; text-align: center; font-size: 12px; font-weight: 800; padding: 4px; color: #fff; }
-.it-mini { width: 80px; margin-bottom: 22px; }
+.it-mini { width: 80px; height: 64px; margin: 0 0 22px; }
 .it-tips { margin-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } .it-tips p { background: var(--deep); border-radius: 12px; padding: 8px 10px; font-size: 13px; color: var(--muted); margin: 0; } .it-tips b { color: var(--fg); }
 .it-go { margin-top: 14px; width: 100%; border: 0; border-radius: 14px; padding: 14px; font-size: 18px; font-weight: 800; color: #3a2600; background: linear-gradient(180deg, #ffe08a, #ffc94a); box-shadow: 0 4px 0 #b9862a; font-family: inherit; cursor: pointer; }
 .it-flow { margin: 10px 0 0; font-size: 12px; color: var(--muted); text-align: center; line-height: 1.6; }
@@ -784,3 +786,9 @@ h1, h2, h3, h4 { font-family: var(--display); font-weight: 400; text-wrap: balan
   .it-box { font-size: 10px; padding: 6px; } .it-rule { font-size: 9.5px; }
   .it-motto { font-size: 13px; }
 }
+
+/* 단원별 진화 몬스터 그림 (그림 자체에 색과 진화 모습이 있음) */
+.mon.art { filter: drop-shadow(0 14px 18px rgba(0, 0, 0, .55)); }
+.mon.art.boss { filter: drop-shadow(0 0 20px rgba(255, 200, 90, .45)) drop-shadow(0 14px 18px rgba(0, 0, 0, .6)); }
+.mon.art img { filter: none; transform: none; object-position: 50% 100%; }
+.mon.art.thumb, .opt-mon .mon.art { filter: none; }

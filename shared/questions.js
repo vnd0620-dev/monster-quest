@@ -63,7 +63,7 @@
 
   // ───────── 수학 1단원 분수의 나눗셈 ─────────
   const FRAC = {
-    id: 'frac', name: '1. 분수의 나눗셈', ready: true, dragon: '보라 그림자 용', hue: 0,
+    id: 'frac', name: '1. 분수의 나눗셈', ready: true, dragon: '메가워드라몬', hue: 0, art: 'dragon', mons: ['용콩이', '비늘드라몬', '암흑바룡', '메가워드라몬'],
     standards: [
       { code: '[6수01-10]', text: '(자연수)÷(자연수)에서 나눗셈의 몫을 분수로 나타낼 수 있다.' },
       { code: '[6수01-11]', text: '분수의 나눗셈의 계산 원리를 탐구하고 그 계산을 할 수 있다.' },
@@ -258,7 +258,7 @@
 
   // ───────── 수학 3단원 소수의 나눗셈 ─────────
   const DEC = {
-    id: 'dec', name: '3. 소수의 나눗셈', ready: true, dragon: '황금 번개 용', hue: 140,
+    id: 'dec', name: '3. 소수의 나눗셈', ready: true, dragon: '황금뇌수몬', hue: 140, art: 'griffin', mons: ['깃부리', '그리키드', '수호그리폰', '황금뇌수몬'],
     standards: [
       { code: '[6수01-14]', text: '‘(자연수)÷(자연수)’에서 나눗셈의 몫을 소수로 나타낼 수 있다.' },
       { code: '[6수01-15]', text: '소수의 나눗셈의 계산 원리를 탐구하고 그 계산을 할 수 있다.' },
@@ -444,7 +444,7 @@
 
   // ───────── 수학 4단원 비와 비율 ─────────
   const RATIO = {
-    id: 'ratio', name: '4. 비와 비율', ready: true, dragon: '푸른 서리 용', hue: 300,
+    id: 'ratio', name: '4. 비와 비율', ready: true, dragon: '신갑수호몬', hue: 300, art: 'haetae', mons: ['뿔멍이', '해태치', '단죄해치몬', '신갑수호몬'],
     standards: [
       { code: '[6수02-02]', text: '두 양의 크기를 비교하는 상황을 통해 비의 개념을 이해하고, 두 양의 관계를 비로 나타낼 수 있다.' },
       { code: '[6수02-03]', text: '비율을 이해하고, 비율을 분수, 소수, 백분율로 나타낼 수 있다.' },
@@ -632,7 +632,7 @@
   // ───────── 수학 2단원 각기둥과 각뿔 ─────────
   // meta: { solid: 'prism'|'pyr', n, ask: 'name'|'V'|'E'|'F'|'side' } — 검사에서 공식(각기둥 V=2n, E=3n, F=n+2 / 각뿔 V=n+1, E=2n, F=n+1)으로 정답을 다시 계산
   const PRISM = {
-    id: 'prism', name: '2. 각기둥과 각뿔', ready: true, dragon: '초록 독안개 용', hue: 180,
+    id: 'prism', name: '2. 각기둥과 각뿔', ready: true, dragon: '심해거수몬', hue: 180, art: 'octo', mons: ['문어콩', '옥토바이트', '크라케노이드', '심해거수몬'],
     standards: [
       { code: '[6수03-05]', text: '각기둥과 각뿔을 이해하고, 구성 요소와 성질을 탐구하고 설명할 수 있다.' },
       { code: '[6수03-06]', text: '각기둥의 전개도를 그릴 수 있다.' },
@@ -819,7 +819,7 @@
 
   // ───────── 수학 5단원 여러 가지 그래프 ─────────
   const GRAPH = {
-    id: 'graph', name: '5. 여러 가지 그래프', ready: true, dragon: '붉은 화염 용', hue: 90,
+    id: 'graph', name: '5. 여러 가지 그래프', ready: true, dragon: '천뇌신록몬', hue: 90, art: 'kirin', mons: ['불사슴', '화록몬', '염제기린몬', '천뇌신록몬'],
     standards: [
       { code: '[6수04-02]', text: '자료를 수집하여 띠그래프나 원그래프로 나타내고 해석할 수 있다.' },
       { code: '[6수04-03]', text: '탐구 문제를 설정하고, 그에 맞는 자료를 수집, 정리하여 적절한 그래프로 나타내고 해석할 수 있다.' },
@@ -902,7 +902,7 @@
           Q('gm-1', 1, '좋아하는 과일을 조사했더니 전체 20명 중 사과를 좋아하는 학생이 8명이었어요. 사과는 전체의 몇 %일까요?', '40%', [['8%', 'base'], ['0.4%', 'x100'], ['60%', 'total']], '(사과 학생 수) ÷ (전체 학생 수)를 구해요.', '비율에 100을 곱하면 백분율이에요.', '8 ÷ 20 = 0.4, 0.4 × 100 = 40(%)예요.', '첫 단계: 사과를 좋아하는 학생 수를 전체 학생 수로 나누는 식을 세워요', { ask: 'mk', n: 8, total: 20 }),
           Q('gm-2', 1, '전체 50명 중 15명이 축구를 좋아해요. 축구를 좋아하는 학생은 전체의 몇 %일까요?', '30%', [['15%', 'base'], ['35%', 'total'], ['0.3%', 'x100']], '15 ÷ 50 을 먼저 구해요.', '비율 × 100 = 백분율', '15 ÷ 50 = 0.3, 0.3 × 100 = 30(%)예요.', '첫 단계: 15를 50으로 나누는 식을 세워요', { ask: 'mk', n: 15, total: 50 }),
           Q('gm-3', 2, '좋아하는 계절을 조사했어요. 봄 9명, 여름 6명, 가을 12명, 겨울 3명일 때 가을은 전체의 몇 %일까요?', '40%', [['12%', 'base'], ['30%', 'label'], ['60%', 'total']], '전체 학생 수를 먼저 구해요.', '(가을 학생 수) ÷ (전체 학생 수) × 100', '전체는 9 + 6 + 12 + 3 = 30(명), 12 ÷ 30 × 100 = 40(%)예요.', '첫 단계: 네 계절의 학생 수를 모두 더해 전체 학생 수를 구해요', { ask: 'mkitem', item: '가을' }),
-          Q('gm-4', 2, '띠그래프를 그리려고 백분율을 구했더니 가 35%, 나 30%, 다 15%, 라 □%였어요. □에 알맞은 수는?', '20%', [['80%', 'total'], ['100%', 'pct100'], ['15%', 'label']], '백분율의 합계는 100%예요.', '100에서 나머지 세 항목을 빼요.', '100 − 35 − 30 − 15 = 20(%)예요.', '첫 단계: 가, 나, 다의 백분율을 모두 더해요', { val: 20 }),
+          Q('gm-4', 2, '띠그래프를 그리려고 네 항목의 백분율을 구했더니 가 35%, 나 30%, 다 15%였어요. 라는 몇 %일까요?', '20%', [['80%', 'total'], ['100%', 'pct100'], ['15%', 'label']], '백분율의 합계는 100%예요.', '100에서 나머지 세 항목을 빼요.', '100 − 35 − 30 − 15 = 20(%)예요.', '첫 단계: 가, 나, 다의 백분율을 모두 더해요', { val: 20 }),
           Q('gm-5', 2, '길이가 20 cm인 띠그래프에 30%인 항목을 나타내려면 그 칸을 몇 cm로 그려야 할까요?', '6 cm', [['30 cm', 'base'], ['3 cm', 'len'], ['14 cm', 'total']], '띠 전체 20 cm가 100%예요.', '20 × (30 ÷ 100)', '20 × 30 ÷ 100 = 6(cm)예요.', '첫 단계: 띠 전체 길이 20 cm에 30 ÷ 100 을 곱하는 식을 세워요', { ask: 'len', L: 20, p: 30 }),
           Q('gm-6', 3, '좋아하는 간식을 조사했어요. 피자 14명, 치킨 10명, 김밥 8명, 떡볶이 8명일 때 피자는 전체의 몇 %일까요?', '35%', [['14%', 'base'], ['25%', 'label'], ['65%', 'total']], '전체 학생 수를 먼저 구해요.', '(피자 학생 수) ÷ (전체 학생 수) × 100', '전체 40명, 14 ÷ 40 × 100 = 35(%)예요.', '첫 단계: 네 간식의 학생 수를 모두 더해 전체 수를 구해요', { ask: 'mkitem', item: '피자' }),
           Q('gm-7', 1, '가 50%, 나 30%, 다 20%인 자료를 바르게 나타낸 띠그래프는?', '[[fig:band:abc:s:50:30:20]]', [['[[fig:band:abc:s:30:50:20]]', 'label'], ['[[fig:band:abc:s:50:20:30]]', 'label'], ['[[fig:band:abc:s:60:20:20]]', 'scale']], '눈금으로 각 칸의 길이(백분율)를 확인해요.', '가는 0~50, 나는 50~80, 다는 80~100이어야 해요.', '가 50%, 나 30%, 다 20%로 나뉜 띠그래프가 정답이에요.', '첫 단계: 보기마다 가 칸이 끝나는 눈금이 50인지 확인해요', { ask: 'pick', vals: [50, 30, 20] }),
@@ -912,7 +912,7 @@
         ],
         twins: [
           T('gm-t1', 1, '전체 20명 중 5명이 포도를 좋아해요. 포도는 전체의 몇 %일까요?', ['25%'], '5 ÷ 20 을 구해요.', '비율 × 100', '5 ÷ 20 × 100 = 25, 정답은 25%예요.', { ask: 'mk', n: 5, total: 20 }),
-          T('gm-t2', 1, '세 항목의 백분율이 40%, 35%, □%인 띠그래프에서 □에 알맞은 수는?', ['25%'], '합계는 100%예요.', '100 − 40 − 35', '정답은 25%예요.', { val: 25 }),
+          T('gm-t2', 1, '세 항목 중 두 항목의 백분율이 40%, 35%인 띠그래프에서 나머지 한 항목은 몇 %일까요?', ['25%'], '합계는 100%예요.', '100 − 40 − 35', '정답은 25%예요.', { val: 25 }),
           T('gm-t3', 2, '전체 40명 중 6명이 고양이를 좋아해요. 고양이는 전체의 몇 %일까요?', ['15%'], '6 ÷ 40 을 구해요.', '비율 × 100', '6 ÷ 40 × 100 = 15, 정답은 15%예요.', { ask: 'mk', n: 6, total: 40 }),
           T('gm-t4', 2, '길이가 10 cm인 띠그래프에서 45%인 항목은 몇 cm로 그려야 할까요? (숫자만)', ['4.5', '4.5 cm'], '10 cm가 100%예요.', '10 × 45 ÷ 100', '정답은 4.5 cm예요.', { ask: 'len', L: 10, p: 45 }),
           T('gm-t5', 2, '좋아하는 책을 조사했어요. 동화책 14명, 과학책 10명, 만화책 16명일 때 과학책은 전체의 몇 %일까요?', ['25%'], '전체 수를 먼저 구해요.', '10 ÷ 40 × 100', '정답은 25%예요.', { ask: 'mkitem', item: '과학책' }),
@@ -1008,7 +1008,7 @@
 
   // ───────── 수학 6단원 직육면체의 부피와 겉넓이 ─────────
   const CUBE = {
-    id: 'cube', name: '6. 직육면체의 부피와 겉넓이', ready: true, dragon: '청록 폭풍 용', hue: 260,
+    id: 'cube', name: '6. 직육면체의 부피와 겉넓이', ready: true, dragon: '세인트페가몬', hue: 260, art: 'unicorn', mons: ['뽀롱마', '오로라콘', '순백천마몬', '세인트페가몬'],
     standards: [
       { code: '[6수03-17]', text: '직육면체와 정육면체의 겉넓이를 구하는 방법을 이해하고, 이를 구할 수 있다.' },
       { code: '[6수03-18]', text: '부피 단위 1cm³, 1m³를 알며, 그 관계를 이해한다.' },
@@ -1216,7 +1216,12 @@
     },
   ];
 
-  const GRADES = [1, 2, 3, 4, 5, 6];
+  // 5학년 1·2학기 (scripts/g5/ 생성기로 만든 shared/questions-g5.js)
+  const G5 = (typeof module === 'object' && module.exports && typeof require === 'function') ? require('./questions-g5.js')
+    : ((typeof globalThis !== 'undefined' && globalThis.MQQuestionsG5) || { subjects: [] });
+  for (const sj of G5.subjects) subjects.push(sj);
+
+  const GRADES = [3, 4, 5, 6];
   for (const sj of subjects) for (const u of sj.units) for (const a of u.areas || []) for (const qq of a.questions) if (STEPS[qq.id]) qq.step = STEPS[qq.id];
   const unitById = id => { for (const s of subjects) for (const u of s.units) if (u.id === id) return u; return null; };
   const subjectOfUnit = id => subjects.find(s => s.units.some(u => u.id === id)) || null;
@@ -1227,7 +1232,7 @@
       grades: GRADES.map(g => ({ grade: g, ready: subjects.some(s => s.grade === g && readySubject(s)) })),
       subjects: subjects.map(s => ({
         id: s.id, name: s.name, icon: s.icon, grade: s.grade, term: s.term, ready: readySubject(s),
-        units: s.units.map(u => ({ id: u.id, name: u.name, ready: !!u.ready, dragon: u.dragon, hue: u.hue, standards: u.standards, areas: u.areas.map(a => ({ id: a.id, name: a.name, std: a.std })) })),
+        units: s.units.map(u => ({ id: u.id, name: u.name, ready: !!u.ready, dragon: u.dragon, hue: u.hue, art: u.art || null, mons: u.mons || null, standards: u.standards, areas: u.areas.map(a => ({ id: a.id, name: a.name, std: a.std })) })),
       })),
     };
   }

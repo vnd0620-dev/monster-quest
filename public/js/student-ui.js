@@ -10,6 +10,8 @@
   const GIFT_ICON = { elim: '✂️', concept: '📗', step: '🪜' };
   const GIFT_DESC = { elim: '틀린 보기 하나를 지워 줘요', concept: '개념을 다시 알려 줘요', step: '풀이 과정 첫 줄을 보여 줘요' };
   const DIFF_NAME = { 1: '하', 2: '중', 3: '상' };
+  // 받침이 있으면 '을', 없으면 '를'
+  const josaUl = w => { const c = String(w || '').trim().slice(-1).charCodeAt(0); return c >= 0xAC00 && c <= 0xD7A3 && (c - 0xAC00) % 28 ? '을' : '를'; };
 
   function mount(root, opt) {
     opt = opt || {};
@@ -158,7 +160,7 @@
         <header class="j-top"><span class="j-logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFC547" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/><path d="m19 21 2-2"/></svg>협력 몬스터 퀴즈</span><button type="button" class="j-howto" data-act="intro">게임 방법</button></header>
         <section class="j-scene" aria-label="오늘의 보스 등장">
           <i class="j-rays" aria-hidden="true"></i><i class="j-rays2" aria-hidden="true"></i><i class="j-glow" aria-hidden="true"></i><i class="j-halo" aria-hidden="true"></i>
-          <img class="j-boss" src="${IMG.dragon}" alt="그림자 속 오늘의 보스">
+          <img class="j-boss" src="img/mon/griffin4.webp" alt="그림자 속 오늘의 보스">
           <i class="j-dot" style="left:22%;top:30%;width:4px;height:4px"></i><i class="j-dot" style="left:74%;top:22%;width:3px;height:3px"></i><i class="j-dot" style="left:66%;top:62%;width:5px;height:5px"></i><i class="j-dot" style="left:30%;top:70%;width:3px;height:3px"></i>
           <div class="j-title"><h2>함께 물리쳐라!</h2><p>모둠이 모여야 공격할 수 있어요</p></div>
         </section>
@@ -191,6 +193,8 @@
 
     // ───── 게임 설명 팝업 (한 장에 모두 보기) ─────
     function introHtml() {
+      // 방에 들어와 있으면 이번 단원 최종 보스, 아니면 1단원 최종 보스
+      const monSrc = (S.st && S.st.art) || 'img/mon/dragon4.webp';
       return `<section class="it-pop" role="dialog" aria-label="게임 방법">
         <button type="button" class="it-x" data-act="intro-close" aria-label="닫기">✕</button>
         <h2 class="it-title">🗡️ <b>협력 몬스터 퀴즈</b>는 이렇게 해요!</h2>
@@ -201,7 +205,7 @@
             <div class="it-viz"><div class="it-q">Q. 3 ÷ 4 를 분수로 나타내면?<div class="it-ch"><span>4/3</span><span class="on">3/4</span><span>1/12</span><span>12</span></div></div><img class="it-fairy" src="${IMG.fairy}" alt=""></div>
             <p>문제 몇 개를 풀면 <b>실력이 고르게 섞이도록</b> 모둠을 나눠요.</p></article>
           <article class="it-card"><h3><span class="it-num">2</span>몬스터 등장</h3>
-            <div class="it-viz"><div class="it-hp"><i></i><em>HP 360 / 440</em></div><img class="it-mon" src="${IMG.dragon}" alt=""><div class="it-heroes"><span>🧑</span><span>👧</span><span>👦</span><span>🧒</span></div></div>
+            <div class="it-viz"><div class="it-hp"><i></i><em>HP 360 / 440</em></div><img class="it-mon" src="${monSrc}" alt=""><div class="it-heroes"><span>🧑</span><span>👧</span><span>👦</span><span>🧒</span></div></div>
             <p>스테이지마다 몬스터가 나타나요. <b>마지막은 최종 보스</b>예요!</p></article>
           <article class="it-card"><h3><span class="it-num">3</span>내 문제 풀기</h3>
             <div class="it-viz"><span class="it-dmg">−40</span><div class="it-steps"><span class="it-st it-s1">💡 1번 틀리면 · 힌트 1</span><span class="it-st it-s2">🧚 2번 틀리면 · AI 힌트</span><span class="it-st it-s3">📖 3번 틀리면 · AI 해설</span></div></div>
@@ -213,7 +217,7 @@
             <div class="it-viz"><div class="it-box">🎁 <b>친구 힌트 · 개념 힌트</b> — 나누어지는 수가 분자, 나누는 수가 분모예요.<div class="it-rule">✂️ 1번 틀리면 · 📗🪜 2번 틀리면(또는 1분 뒤) 한 문제에 하나</div></div></div>
             <p>막히면 상자에서 <b>필요한 힌트를 골라</b> 써요. 누가 만들었는지는 비밀이에요.</p></article>
           <article class="it-card"><h3><span class="it-num">6</span>모두 해결 → 합동 공격</h3>
-            <div class="it-viz"><img class="it-mon it-mini" src="${IMG.dragon}" alt=""><span class="it-boom">−200</span><span class="it-ready">⚔️ 모두 해결! 합동 공격!</span></div>
+            <div class="it-viz"><img class="it-mon it-mini" src="${monSrc}" alt=""><span class="it-boom">−200</span><span class="it-ready">⚔️ 모두 해결! 합동 공격!</span></div>
             <p><b>모둠원 모두</b> 자기 문제를 풀어야 공격할 수 있어요. 최종 보스를 물리치면 <b>학습 리포트</b>를 봐요.</p></article>
         </div>
         <div class="it-tips"><p>👍 <b>반응</b>: 이모지로 친구를 응원해요.</p><p>✋ <b>손들기</b>: 도움이 필요하면 손을 들어요.</p><p>🛒 <b>상점</b>: 포인트로 캐릭터를 꾸며요.</p></div>
@@ -229,7 +233,7 @@
         <div class="lobby-head"><h2>⏳ 대기실</h2><button type="button" class="btn btn-ghost sm" data-act="intro">❓ 게임 방법</button></div>
         <p>선생님이 시작하면 레벨 테스트부터 해요<span class="dots" aria-hidden="true"></span></p>
         <p class="map-chip">${esc(st.subjectName)} · ${esc(st.unitName)}</p>
-        <div class="mon-preview">${monsterImg({ scale: .7 }, st.hue)}<p class="muted small">이번 지도의 몬스터: <b>${esc(st.dragon)}</b></p></div>
+        <div class="mon-preview">${monsterImg({ scale: .7, art: st.art, form: 4 }, st.hue)}<p class="muted small">이번 지도의 몬스터: <b>${esc(st.dragon)}</b></p></div>
         ${rosterHtml(list)}
         <p class="muted small">지금 ${list.length}명이 들어왔어요</p>
       </section>`;
@@ -476,7 +480,7 @@
       const r = st.result || {};
       return topBar(st) + `<section class="s-card s-end">
         <div class="trophy" aria-hidden="true">🏆</div>
-        <h2>${r.cleared >= r.stages ? `우리 모둠이 ${esc(st.dragon)}를 물리쳤어요!` : '모험 끝! 수고했어요'}</h2>
+        <h2>${r.cleared >= r.stages ? `우리 모둠이 ${esc(st.dragon)}${josaUl(st.dragon)} 물리쳤어요!` : '모험 끝! 수고했어요'}</h2>
         <p>${r.team ? `<b>${esc(r.team)}</b> · ` : ''}몬스터 <b>${r.cleared || 0} / ${r.stages || 0}</b> 처치 · 내가 해결한 문제 <b>${r.ok || 0}개</b> · 추가 문제 ${r.extra || 0}개 · 포인트 ⭐ ${r.points || 0}</p>
         <p class="muted small">힌트를 보고 다시 도전한 것도 모두 멋진 성장이에요.</p>
         ${st.phase === 'playing' ? '<p class="muted small">⚔️ 다른 모둠은 아직 몬스터와 싸우는 중이에요. 그동안 내 리포트를 읽고 오답노트를 풀어 봐요.</p>' : ''}

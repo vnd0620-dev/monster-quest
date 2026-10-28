@@ -25,6 +25,8 @@
     const h = hue != null ? hue : (mon && mon.hue) || 0;
     const sc = (mon && mon.scale) || 1;
     // 스테이지가 오를수록 진화한 모습: f1 새끼(밝고 작음) → f2 성장(어두운 기운·빛나는 눈) → f3 최종 보스(불꽃 기운·불씨·왕관)
+    // 단원별 진화 그림이 있으면 그 그림을 그대로 씀 (색 바꾸기·눈·왕관 효과 없음)
+    if (mon && mon.art) return `<div class="mon art f${mon.form || 1} ${cls || ''} ${mon.boss ? 'boss' : ''}" style="--sc:${sc}"><img src="${mon.art}" alt="" draggable="false"></div>`;
     const form = (mon && mon.form) || (mon && mon.boss ? 3 : 1);
     const fx = form >= 2 ? `<i class="aura" aria-hidden="true"></i>` : '';
     const eyes = form >= 2 ? `<i class="eye e1" aria-hidden="true"></i><i class="eye e2" aria-hidden="true"></i>` : '';

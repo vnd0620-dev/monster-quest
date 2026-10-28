@@ -155,8 +155,14 @@
     function monsterOf(room, stage) {
       const u = unitOf(room), last = stage >= room.settings.stages;
       // form: 1 새끼(첫 스테이지) · 2 성장(중간) · 3 최종 보스 — 스테이지가 오를수록 더 강한 모습
+      const scale = last ? 1.12 : Math.min(1, 0.74 + 0.1 * (stage - 1));
+      if (u.art && u.mons) {
+        // 진화 그림 4단계: 마지막 스테이지는 항상 4단계(최종 보스), 그 앞은 1 → 2 → 3단계 순서
+        const form = last ? 4 : Math.min(stage, 3);
+        return { name: last ? `최종 보스 · ${u.mons[3]}` : u.mons[form - 1], hue: u.hue, boss: last, form, scale, art: `img/mon/${u.art}${form}.webp` };
+      }
       const form = last ? 3 : stage <= 1 ? 1 : 2;
-      return { name: last ? `최종 보스 · ${u.dragon}` : `${STAGE_TITLES[Math.min(stage - 1, STAGE_TITLES.length - 1)]} ${u.dragon}`, hue: u.hue, boss: last, form, scale: last ? 1.12 : Math.min(1, 0.74 + 0.1 * (stage - 1)) };
+      return { name: last ? `최종 보스 · ${u.dragon}` : `${STAGE_TITLES[Math.min(stage - 1, STAGE_TITLES.length - 1)]} ${u.dragon}`, hue: u.hue, boss: last, form, scale };
     }
     const groupOf = (room, p) => (p && p.group ? room.groups.find(g => g.id === p.group) : null) || null;
     const membersOf = (room, g) => g.members.map(pid => room.players.get(pid)).filter(Boolean);
@@ -374,7 +380,7 @@
     }
     function studentState(room, p) {
       const u = unitOf(room), subj = QB.subjectOfUnit(u.id);
-      const st = { t: 'state', code: room.code, phase: room.phase, frozen: room.frozen, subjectName: subj ? subj.name : '', unitName: u.name, dragon: u.dragon, hue: u.hue, chatList: CHAT, giftKinds: GIFTS,
+      const st = { t: 'state', code: room.code, phase: room.phase, frozen: room.frozen, subjectName: subj ? subj.name : '', unitName: u.name, dragon: u.dragon, hue: u.hue, art: u.art ? `img/mon/${u.art}4.webp` : null, chatList: CHAT, giftKinds: GIFTS,
         me: { pid: p.pid, num: p.num, name: p.name, ok: p.stats.ok, points: p.points, equip: p.equip, owned: p.owned }, notes: p.notes.filter(n => !n.resolved).length, canShop: canShop(room, p) };
       if (room.phase === 'lobby' || room.phase === 'diagcount' || room.phase === 'diag') {
         // 대기 명단에는 이름만 (누가 레벨 테스트를 끝냈는지도 보여 주지 않음)

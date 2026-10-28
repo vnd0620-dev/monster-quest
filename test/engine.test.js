@@ -478,7 +478,7 @@ test('손들기: 들면 친구·선생님 화면에 보이고, 내리면 사라�
   assert.equal(tp().hand, false, '새 수업이면 손을 내림');
 });
 
-test('스테이지마다 몬스터 모습이 진화한다 (새끼 → 성장 → 최종 보스)', () => {
+test('스테이지마다 몬스터 모습이 진화한다 (1 → 2 → 3 → 4단계 최종 보스)', () => {
   const s = setup(2, { stages: 4 }); toPlaying(s, true);
   const g = s.room.groups[0];
   const forms = [];
@@ -487,7 +487,7 @@ test('스테이지마다 몬스터 모습이 진화한다 (새끼 → 성장 →
     for (const k of s.kids) finishMine(s, k);
     s.eng.handle(s.kids[0], { t: 'attack', stage: g.stage });
   }
-  assert.deepEqual(forms, [1, 2, 2, 3]);
+  assert.deepEqual(forms, [1, 2, 3, 4]);
 });
 
 test('추가 문제 답 칸 모양: 대분수는 3칸, 분수는 2칸, 단위가 붙어도 숫자 칸', () => {

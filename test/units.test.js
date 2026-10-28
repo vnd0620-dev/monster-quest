@@ -10,17 +10,19 @@ const READY = QB.subjects.flatMap(sj => sj.units.filter(u => u.ready));
 const all = u => u.areas.flatMap(a => [...a.questions.map(q => ({ a, it: q, main: true })), ...a.twins.map(t => ({ a, it: t, main: false }))]);
 const near = (x, y) => Math.abs(x - y) < 1e-9;
 
-test('준비된 단원: 수학 1~6단원 모두', () => {
-  assert.deepEqual(READY.map(u => u.id), ['frac', 'prism', 'dec', 'ratio', 'graph', 'cube']);
+test('준비된 단원: 6학년 수학 1~6단원 모두 + 5학년 단원', () => {
+  assert.deepEqual(READY.slice(0, 6).map(u => u.id), ['frac', 'prism', 'dec', 'ratio', 'graph', 'cube']);
+  const G5 = ['mix5', 'fac5', 'corr5', 'red5', 'fadd5', 'poly5', 'range5', 'fmul5', 'cong5', 'dmul5', 'cuboid5', 'avg5'];
+  assert.deepEqual(READY.slice(6).map(u => u.id), G5.filter(id => READY.some(u => u.id === id)));
   const math = QB.subjects.find(s => s.id === 'math');
   assert.deepEqual(math.units.filter(u => !u.ready).map(u => u.id), []);
 });
 
 for (const u of READY) {
-  test(`${u.name}: 평가요소 4 × (본 문항 10 + 추가 문제 8), 난이도·평가기준·제안 문구`, () => {
-    assert.equal(u.areas.length, 4);
+  test(`${u.name}: 평가요소 4~5 × (본 문항 10 + 추가 문제 8), 난이도·평가기준·제안 문구`, () => {
+    assert.ok(u.areas.length === 4 || u.areas.length === 5, u.id + ' 평가요소 수');
     const codes = u.standards.map(x => x.code);
-    assert.ok(codes.length >= 2);
+    assert.ok(codes.length >= 1);
     for (const a of u.areas) {
       assert.equal(a.questions.length, 10, a.id);
       assert.equal(a.twins.length, 8, a.id);
@@ -54,11 +56,13 @@ for (const u of READY) {
       const nums = (it.text.replace(FIG.TOKEN, '').match(/\d+ \d+\/\d+|\d+\/\d+|\d+\.\d+|\d+/g) || []).join('|');
       // 계산 단원(1·3단원)은 숫자 조합이 같으면 같은 문제, 개념 단원(2·4단원)은 숫자와 묻는 말이 모두 같아야 같은 문제
       const calc = u.id === 'frac' || u.id === 'dec';
-      return figs || !nums || !calc ? figs + '#' + nums + '#' + it.text.replace(FIG.TOKEN, '').replace(/[\s?.()]/g, '') : nums;
+      // 혼합 계산 단원은 괄호 위치가 다르면 다른 문제
+      const strip = u.id === 'mix5' ? /[\s?.]/g : /[\s?.()]/g;
+      return figs || !nums || !calc ? figs + '#' + nums + '#' + it.text.replace(FIG.TOKEN, '').replace(strip, '') : nums;
     };
     const seen = new Map();
     for (const { it } of all(u)) { const k = key(it); assert.ok(!seen.has(k), `${it.id} 와 ${seen.get(k)} 가 같은 문제`); seen.set(k, it.id); }
-    assert.equal(seen.size, 72);
+    assert.equal(seen.size, u.areas.length * 18);
   });
 
   test(`${u.name}: 그림 자리표는 모두 그릴 수 있음`, () => {

@@ -6,7 +6,7 @@
   const { esc, math, hero, monsterImg, toast, store, resultCharts, lvBadge } = window.MQUI;
   const PHASE = { lobby: '대기 중', diagcount: '레벨 테스트 준비', diag: '레벨 테스트 중', grouped: '모둠 구성 완료', countdown: '시작하는 중', playing: '게임 중', ended: '게임 끝' };
   const DIFF = { auto: '레벨에 맞춰 자동', 1: '하 (기본)', 2: '중 (보통)', 3: '상 (도전)' };
-  const TABS = [['grade', '학년'], ['subject', '과목'], ['unit', '단원'], ['area', '영역'], ['diff', '난이도'], ['stages', '스테이지'], ['perStage', '1인 문제 수'], ['diag', '레벨 테스트'], ['size', '모둠 인원']];
+  const TABS = [['grade', '학년·학기'], ['unit', '단원'], ['area', '영역'], ['diff', '난이도'], ['stages', '스테이지'], ['perStage', '1인 문제 수'], ['diag', '레벨 테스트'], ['size', '모둠 인원']];
 
   function mount(root, opt) {
     opt = opt || {};
@@ -59,12 +59,15 @@
     // ───── 설정 탭 (HTML 버전과 같은 방식) ─────
     const subjectsOf = g => CAT.subjects.filter(s => s.grade === g);
     const subjOf = s => CAT.subjects.find(x => x.id === s.subject) || subjectsOf(s.grade)[0];
+    const readyTerms = g => [...new Set(CAT.subjects.filter(x => x.grade === g && x.ready).map(x => x.term.replace('학기', '')))].sort().join('·');
+    // 학년·학기 칸: 과목은 수학만, 3~6학년 × 1·2학기
+    const SHOW_GRADES = [3, 4, 5, 6], TERMS = ['1학기', '2학기'];
+    const mathOf = (g, t) => CAT.subjects.find(x => x.grade === g && x.term === t && x.name === '수학');
     const unitOf = s => { const sj = subjOf(s); return (sj && sj.units.find(u => u.id === s.unit)) || (sj && sj.units[0]); };
     function valueOf(s, k) {
       const sj = subjOf(s), u = unitOf(s);
       switch (k) {
         case 'grade': return `${s.grade}학년 ${sj ? sj.term : ''}`;
-        case 'subject': return sj ? `${sj.icon} ${sj.name}` : '-';
         case 'unit': return u ? u.name : '-';
         case 'area': return s.area === 'all' ? '전체 섞어서' : ((u && u.areas.find(a => a.id === s.area)) || {}).name || '-';
         case 'diff': return DIFF[s.diff];
@@ -81,9 +84,8 @@
       const sj = subjOf(s), u = unitOf(s);
       let panel = '';
       switch (T.tab) {
-        case 'grade': panel = `<h3>학년을 골라요</h3><div class="opts">${CAT.grades.map(g => opt('grade', g.grade, s.grade === g.grade, `<b>${g.grade}학년</b><small>${g.ready ? '1학기 문제 있음' : '준비 중'}</small>`, g.ready ? '' : 'disabled')).join('')}</div><p class="hint">프로토타입에는 6학년 1학기 문제만 들어 있어요.</p>`; break;
-        case 'subject': panel = `<h3>과목을 골라요</h3><div class="opts">${subjectsOf(s.grade).map(x => opt('subject', x.id, s.subject === x.id, `<b>${x.icon} ${x.name}</b><small>${x.ready ? `${x.units.filter(u => u.ready).length}개 단원 준비됨` : '준비 중'}</small>`, x.ready ? '' : 'disabled')).join('')}</div>`; break;
-        case 'unit': panel = `<h3>단원을 골라 몬스터 지도를 정해요</h3><div class="opts wide">${sj.units.map(x => opt('unit', x.id, s.unit === x.id, `<span class="opt-mon">${monsterImg({ scale: 1 }, x.hue)}</span><b>${esc(x.name)}</b><small>${x.ready ? `${esc(x.dragon)} · ${x.standards.map(st => esc(st.code)).join(' ')}` : '준비 중'}</small>`, x.ready ? '' : 'disabled')).join('')}</div><p class="hint">지금은 1~4단원에 문제·평가기준이 들어 있어요. 5·6단원은 준비 중이에요.</p>`; break;
+        case 'grade': panel = `<h3>학년과 학기를 골라요 <span class="muted small">(수학)</span></h3><div class="opts four">${SHOW_GRADES.flatMap(g => TERMS.map(t => { const m = mathOf(g, t), ok = !!(m && m.ready); return opt('gterm', m ? m.id : `${g}-${t}`, !!(m && s.subject === m.id), `<b>${g}학년 ${t}</b><small>${ok ? `${m.units.filter(u => u.ready).length}개 단원` : '준비 중'}</small>`, ok ? '' : 'disabled'); })).join('')}</div><p class="hint">문제가 들어 있는 학기: ${SHOW_GRADES.flatMap(g => TERMS.filter(t => { const m = mathOf(g, t); return m && m.ready; }).map(t => `${g}학년 ${t}`)).join(', ') || '아직 없음'}</p>`; break;
+        case 'unit': panel = `<h3>단원을 골라 몬스터 지도를 정해요</h3><div class="opts wide">${sj.units.map(x => opt('unit', x.id, s.unit === x.id, `<span class="opt-mon">${monsterImg({ scale: 1, art: x.art ? `img/mon/${x.art}4.webp` : null, form: 4 }, x.hue)}</span><b>${esc(x.name)}</b><small>${x.ready ? `${esc(x.dragon)} · ${x.standards.map(st => esc(st.code)).join(' ')}` : '준비 중'}</small>`, x.ready ? '' : 'disabled')).join('')}</div><p class="hint">${sj.units.every(x => x.ready) ? `${sj.units.length}개 단원 모두 문제·평가기준이 들어 있어요.` : `문제·평가기준이 들어 있는 단원: ${sj.units.filter(x => x.ready).map(x => esc(x.name.split('.')[0]) + '단원').join(', ') || '아직 없음'}`}</p>`; break;
         case 'area': panel = `<h3>평가 요소를 골라요 <span class="muted small">(${esc(u.name)})</span></h3><div class="opts wide">${opt('area', 'all', s.area === 'all', '<b>전체 섞어서</b>')}${u.areas.map(a => opt('area', a.id, s.area === a.id, `<b>${esc(a.name)}</b><small>${esc(a.std)}</small>`)).join('')}</div>`; break;
         case 'diff': panel = `<h3>난이도</h3><div class="opts">${['auto', 1, 2, 3].map(d => opt('diff', d, String(s.diff) === String(d), `<b>${DIFF[d]}</b><small>${d === 'auto' ? '레벨 테스트 결과에 맞춰 학생마다 달라져요' : ['', '기본 문제', '보통 문제', '도전 문제'][d]}</small>`)).join('')}</div>`; break;
         case 'stages': panel = `<h3>스테이지 수 (몬스터 수)</h3>${num('stages', 1, 5, '마리', '몬스터를 몇 마리 물리치면 끝날지 정해요. 마지막 몬스터는 최종 보스예요')}`; break;
@@ -99,18 +101,19 @@
         ${locked ? '<p class="hint">게임 중에는 설정을 바꿀 수 없어요. 대기실로 돌아가면 다시 바꿀 수 있어요.</p>' : ''}
       </div>`;
     }
-    // 방 만들기 버튼: 9단계 탭을 모두 한 번씩 확인해야 켜짐
+    // 방 만들기 버튼: 8단계 탭을 모두 한 번씩 확인해야 켜짐
     const allVisited = () => TABS.every(t => T.visited.has(t[0]));
     function createBtn() {
       const left = TABS.map((t, i) => [t, i]).filter(([t]) => !T.visited.has(t[0]));
       return `<button type="button" class="btn btn-gold btn-big" data-act="create" ${left.length ? 'disabled' : ''}>🔑 방 번호 만들고 QR 생성하기</button>
-        ${left.length ? `<p class="hint create-hint">아직 확인하지 않은 단계: ${left.map(([t, i]) => `${i + 1}. ${esc(t[1])}`).join(' · ')}</p>` : '<p class="hint create-hint ok">9단계를 모두 확인했어요. 방을 만들 수 있어요!</p>'}`;
+        ${left.length ? `<p class="hint create-hint">아직 확인하지 않은 단계: ${left.map(([t, i]) => `${i + 1}. ${esc(t[1])}`).join(' · ')}</p>` : '<p class="hint create-hint ok">8단계를 모두 확인했어요. 방을 만들 수 있어요!</p>'}`;
     }
     function changeSetting(k, v) {
       if (T.tab) T.visited.add(T.tab);
       const cur = T.ts ? T.ts.settings : T.draft;
       const s = Object.assign({}, cur, { [k]: v });
       const firstReady = sj => (sj.units.find(u => u.ready) || sj.units[0]).id;
+      if (k === 'gterm') { const sj = CAT.subjects.find(x => x.id === v); if (!sj) return; delete s.gterm; s.grade = sj.grade; s.subject = sj.id; s.unit = firstReady(sj); s.area = 'all'; }
       if (k === 'grade') { const sj = subjectsOf(v).find(x => x.ready) || subjectsOf(v)[0]; if (sj) { s.subject = sj.id; s.unit = firstReady(sj); s.area = 'all'; } }
       if (k === 'subject') { const sj = CAT.subjects.find(x => x.id === v); s.unit = firstReady(sj); s.area = 'all'; }
       if (k === 'unit') s.area = 'all';
@@ -410,7 +413,7 @@
         case 'tab': T.tab = k; T.visited.add(k); render(); break;
         case 'set': changeSetting(k, k === 'grade' || k === 'diag' ? Number(el.dataset.v) : k === 'diff' ? (el.dataset.v === 'auto' ? 'auto' : Number(el.dataset.v)) : el.dataset.v); break;
         case 'step': { const cur = (T.ts ? T.ts.settings : T.draft)[k]; const [lo, hi] = RANGE[k]; changeSetting(k, Math.min(hi, Math.max(lo, cur + Number(el.dataset.d)))); break; }
-        case 'create': if (!allVisited()) { toast($('.toasts'), '9단계를 모두 확인해야 방을 만들 수 있어요.'); break; } net.send({ t: 'tcreate', settings: T.draft }) || toast($('.toasts'), '연결하는 중이에요. 잠시 뒤 다시 눌러 주세요.'); break;
+        case 'create': if (!allVisited()) { toast($('.toasts'), '8단계를 모두 확인해야 방을 만들 수 있어요.'); break; } net.send({ t: 'tcreate', settings: T.draft }) || toast($('.toasts'), '연결하는 중이에요. 잠시 뒤 다시 눌러 주세요.'); break;
         case 'diag': net.send({ t: 'tdiag' }); break;
         case 'group': net.send({ t: 'tgroup' }); break;
         case 'shuffle': net.send({ t: 'tshuffle' }); break;

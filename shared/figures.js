@@ -11,6 +11,8 @@
 //   cub:가로:세로:높이:cm|m     직육면체 (0은 모르는 길이 □)
 //   cubes:가로:세로:높이        쌓기나무 (한 개 1 cm³)
 //   cubes2:가…:나…             쌓기나무 가·나 비교
+//   tbl:묶음:k:윗줄값…:아랫줄값…  대응 관계 표 (k칸, q는 ? 칸)
+//   shp:모양:값…:cm|m          평면도형 (rect 가로·세로 / sq 한 변 / par 밑변·높이·옆변 / tri 밑변·높이 / trap 윗변·아랫변·높이 / rhom 두 대각선 / reg 변 수·한 변) — 0은 □
 // 교사·학생 화면과 서버(검사)가 함께 씁니다.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -229,6 +231,63 @@
 
   // ───── 6단원: 직육면체·쌓기나무 ─────
   // cub:가로:세로:높이:단위 (0은 모르는 길이 □)
+  // ───── 5학년 대응 관계 표 ─────
+  const TBL = {
+    tc: ['탁자 수(□)', '의자 수(△)'], bx: ['상자 수(□)', '공의 수(△)'], ag: ['동생 나이(□)', '형 나이(△)'], ct: ['자른 횟수(□)', '도막 수(△)'],
+    cp: ['공책 수(□)', '공책값(△)'], tm: ['베이징 시각(□)', '서울 시각(△)'], st: ['줄 수(□)', '학생 수(△)'], wt: ['지난 시간(□)', '남은 물(△)'],
+    sq: ['정사각형 수(□)', '꼭짓점 수(△)'], tr: ['삼각형 수(□)', '변의 수(△)'], cg: ['가진 돈(□)', '쓰고 남은 돈(△)'], lg: ['의자 수(□)', '다리 수(△)'],
+  };
+  function table(set, k, top, bot) {
+    const [la, lb] = TBL[set], lw = 120, cw = 50, ch = 38, pad = 12, W = pad * 2 + lw + k * cw, H = pad * 2 + ch * 2;
+    let body = '';
+    [[la, top], [lb, bot]].forEach(([lab, vals], r) => {
+      const y = pad + r * ch;
+      body += `<rect x="${pad}" y="${y}" width="${lw}" height="${ch}" fill="${SOFT}" stroke="${INK}" stroke-width="1.4"/>` + txt(pad + lw / 2, y + ch * 0.64, lab, 14, 700);
+      vals.forEach((v, i) => { const x = pad + lw + i * cw; body += `<rect x="${x}" y="${y}" width="${cw}" height="${ch}" fill="#fff" stroke="${INK}" stroke-width="1.4"/>` + txt(x + cw / 2, y + ch * 0.66, v === 'q' ? '?' : v, 17, 700, 'middle', v === 'q' ? RED : INK); });
+    });
+    return wrap(W, H, body, '대응 관계 표');
+  }
+
+  // ───── 5학년 평면도형 (둘레·넓이) ─────
+  function shape(kind, v, unit) {
+    const lab = x => (x === 0 ? '□' : x) + ' ' + unit;
+    const W = 300, H = 210, pad = 34;
+    let P = [], body = '', marks = '';
+    const fit = (w, h) => { const k = Math.min((W - pad * 2) / w, (H - pad * 2) / h); return k; };
+    const T = (x, y, t, anchor, color) => txt(x, y, t, 15, 700, anchor || 'middle', color);
+    const right = (x, y, dx, dy) => `<polyline points="${f(x + dx * 9)},${f(y)} ${f(x + dx * 9)},${f(y + dy * 9)} ${f(x)},${f(y + dy * 9)}" fill="none" stroke="${RED}" stroke-width="1.4"/>`;
+    if (kind === 'rect' || kind === 'sq') {
+      const a = v[0] || 6, b = kind === 'sq' ? a : (v[1] || 4), k = Math.min((W - pad * 2 - 56) / a, (H - pad * 2) / b), w = a * k, h = b * k, x0 = (W - 56 - w) / 2, y0 = (H - h) / 2;
+      P = [[x0, y0], [x0 + w, y0], [x0 + w, y0 + h], [x0, y0 + h]];
+      marks += T(x0 + w / 2, y0 + h + 22, lab(v[0])) + (kind === 'rect' ? T(x0 + w + 8, y0 + h / 2 + 5, lab(v[1]), 'start') : '');
+    } else if (kind === 'par') {
+      const a = v[0], h0 = v[1], sd = Math.max(v[2] || 0, h0 + 1), off = Math.sqrt(Math.max(1, sd * sd - h0 * h0)), k = fit(a + off, h0);
+      const w = a * k, h = h0 * k, o = off * k, x0 = (W - w - o) / 2, y0 = (H - h) / 2;
+      P = [[x0 + o, y0], [x0 + o + w, y0], [x0 + w, y0 + h], [x0, y0 + h]];
+      marks += T(x0 + w / 2, y0 + h + 22, lab(v[0])) + line([x0 + o, y0], [x0 + o, y0 + h], true, RED, 1.8) + right(x0 + o, y0 + h, 1, -1) + T(x0 + o + 6, y0 + h / 2 + 5, lab(v[1]), 'start', RED);
+      if (v[2]) marks += T(x0 + o / 2 - 10, y0 + h / 2, lab(v[2]), 'end');
+    } else if (kind === 'tri') {
+      const a = v[0], h0 = v[1], k = fit(a, h0), w = a * k, h = h0 * k, x0 = (W - w) / 2, y0 = (H - h) / 2, ax = x0 + w * 0.35;
+      P = [[ax, y0], [x0 + w, y0 + h], [x0, y0 + h]];
+      marks += T(x0 + w / 2, y0 + h + 22, lab(v[0])) + line([ax, y0], [ax, y0 + h], true, RED, 1.8) + right(ax, y0 + h, 1, -1) + T(ax + 6, y0 + h / 2 + 12, lab(v[1]), 'start', RED);
+    } else if (kind === 'trap') {
+      const a = v[0], bb = v[1], h0 = v[2], k = fit(bb, h0), w = bb * k, t = a * k, h = h0 * k, x0 = (W - w) / 2, y0 = (H - h) / 2, tx = x0 + (w - t) * 0.3;
+      P = [[tx, y0], [tx + t, y0], [x0 + w, y0 + h], [x0, y0 + h]];
+      marks += T(tx + t / 2, y0 - 8, lab(v[0])) + T(x0 + w / 2, y0 + h + 22, lab(v[1])) + line([tx + t, y0], [tx + t, y0 + h], true, RED, 1.8) + right(tx + t, y0 + h, -1, -1) + T(tx + t + 6, y0 + h / 2 + 5, lab(v[2]), 'start', RED);
+    } else if (kind === 'rhom') {
+      const d1 = v[0], d2 = v[1], k = fit(d1, d2), w = d1 * k, h = d2 * k, cx = W / 2, cy = H / 2;
+      P = [[cx, cy - h / 2], [cx + w / 2, cy], [cx, cy + h / 2], [cx - w / 2, cy]];
+      marks += line([cx - w / 2, cy], [cx + w / 2, cy], true, RED, 1.8) + line([cx, cy - h / 2], [cx, cy + h / 2], true, BLUE, 1.8) + T(cx + w / 4, cy - 7, lab(v[0]), 'middle', RED) + T(cx + 6, cy + h / 4 + 6, lab(v[1]), 'start', BLUE);
+    } else if (kind === 'reg') {
+      const n = v[0], R = 70, cx = W / 2, cy = H / 2 + 4;
+      for (let i = 0; i < n; i++) { const t = -Math.PI / 2 + Math.PI / n + 2 * Math.PI * i / n; P.push([cx + R * Math.cos(t), cy + R * Math.sin(t)]); }
+      const a = P[Math.floor(n / 2)], b = P[Math.floor(n / 2) - 1 >= 0 ? Math.floor(n / 2) - 1 : n - 1];
+      marks += T((a[0] + b[0]) / 2, Math.max(a[1], b[1]) + 22, lab(v[1]));
+    }
+    body = `<polygon points="${pts(P)}" fill="${SOFT}" stroke="${INK}" stroke-width="2.2" stroke-linejoin="round"/>` + marks;
+    return wrap(W, H, body, '평면도형 그림');
+  }
+
   function cuboid(a, b, c, unit) {
     const show = v => (v ? v : 0), da = show(a) || Math.max(b, c, 3), db = show(b) || Math.max(a, c, 3) * 0.6, dc = show(c) || Math.max(a, b, 3) * 0.7;
     const kx = 0.55, ky = 0.42; // 세로(안쪽) 방향을 비스듬히
@@ -290,6 +349,8 @@
     if (t === 'cub' && (p[4] === 'cm' || p[4] === 'm')) { const d = [+p[1], +p[2], +p[3]]; if (d.every(v => Number.isInteger(v) && v >= 0 && v <= 200) && d.filter(v => v === 0).length <= 1) return { type: t, a: d[0], b: d[1], c: d[2], unit: p[4] }; }
     if (t === 'cubes') { const d = [+p[1], +p[2], +p[3]]; if (d[0] >= 1 && d[0] <= 6 && d[1] >= 1 && d[1] <= 4 && d[2] >= 1 && d[2] <= 4) return { type: t, a: d[0], b: d[1], c: d[2], count: d[0] * d[1] * d[2] }; }
     if (t === 'cubes2') { const d = p.slice(1).map(Number); if (d.length === 6 && d.every(v => Number.isInteger(v) && v >= 1 && v <= 6) && d[1] <= 4 && d[4] <= 4 && d[2] <= 4 && d[5] <= 4) return { type: t, A: d.slice(0, 3), B: d.slice(3), va: d[0] * d[1] * d[2], vb: d[3] * d[4] * d[5] }; }
+    if (t === 'shp') { const kind = p[1], unit = p[p.length - 1], v = p.slice(2, -1).map(Number), need = { rect: 2, sq: 1, par: 3, tri: 2, trap: 3, rhom: 2, reg: 2 }[kind]; if (need && (unit === 'cm' || unit === 'm') && v.length === need && v.every(x => Number.isInteger(x) && x >= 0 && x <= 999) && (kind !== 'reg' || (v[0] >= 3 && v[0] <= 8 && v[1] > 0)) && (kind !== 'par' || (v[0] > 0 && v[1] > 0)) && (kind !== 'trap' || (v[0] > 0 && v[1] > v[0] && v[2] > 0)) && (kind !== 'tri' || (v[0] > 0 && v[1] > 0)) && (kind !== 'rhom' || (v[0] > 0 && v[1] > 0)) && v.filter(x => x === 0).length <= 1) return { type: t, kind, v, unit }; }
+    if (t === 'tbl' && TBL[p[1]]) { const k = +p[2], v = p.slice(3); if (k >= 2 && k <= 6 && v.length === 2 * k && v.every(x => x === 'q' || /^\d{1,5}$/.test(x)) && v.filter(x => x === 'q').length <= 1) return { type: t, set: p[1], k, top: v.slice(0, k), bot: v.slice(k) }; }
     return null;
   }
   function render(spec) {
@@ -308,9 +369,11 @@
     if (q.type === 'cub') return cuboid(q.a, q.b, q.c, q.unit);
     if (q.type === 'cubes') return cubes(q.a, q.b, q.c);
     if (q.type === 'cubes2') return cubes2(q.A, q.B);
+    if (q.type === 'tbl') return table(q.set, q.k, q.top, q.bot);
+    if (q.type === 'shp') return shape(q.kind, q.v, q.unit);
     return '';
   }
   const TOKEN = /\[\[fig:([a-z0-9:]+)\]\]/g;
   const specsIn = text => { const out = []; String(text || '').replace(TOKEN, (_, s) => { out.push(s); return ''; }); return out; };
-  return { render, parse, specsIn, TOKEN, SETS };
+  return { render, parse, specsIn, TOKEN, SETS, TBL };
 });
