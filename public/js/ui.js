@@ -8,7 +8,7 @@
   function math(text) {
     // [[fig:...]] 그림 자리표는 먼저 빼 두었다가 마지막에 그림으로 바꿉니다 (분수 바꾸기가 그림을 건드리지 않게)
     const figs = [];
-    const t = String(text == null ? '' : text).replace(/\[\[fig:([a-z0-9:]+)\]\]/g, (_, sp) => { figs.push(sp); return `\u0000${figs.length - 1}\u0000`; });
+    const t = String(text == null ? '' : text).replace(/\[\[fig:([A-Za-z0-9:]+)\]\]/g, (_, sp) => { figs.push(sp); return `\u0000${figs.length - 1}\u0000`; });
     return esc(t)
       .replace(/(\d+) (\d+)\/(\d+)/g, (_, w, n, d) => `<span class="mixed">${w}${fracHtml(n, d)}</span>`)
       .replace(/(\d+)\/(\d+)/g, (_, n, d) => fracHtml(n, d))

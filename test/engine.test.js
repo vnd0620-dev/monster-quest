@@ -973,3 +973,16 @@ test('가상 친구: 게임 중에는 실제 레벨에 맞춰 풀고(레벨 4가
   assert.match(s2.teacher.last('toast').msg, /가상 친구 3명/);
   assert.equal(s2.teacher.last('tstate').players.filter(p => p.bot).length, 3, '선생님 화면에 가상 친구 표시');
 });
+
+test('효과음: 선생님이 학생 소리를 한 번에 끄고 켬 (학생만 상태로 받음)', () => {
+  const s = setup(2);
+  assert.strictEqual(s.kids[0].last('state').soundOff, false);
+  s.eng.handle(s.teacher, { t: 'tsound', off: true });
+  assert.strictEqual(s.kids[0].last('state').soundOff, true);
+  assert.strictEqual(s.kids[1].last('state').soundOff, true);
+  assert.strictEqual(s.teacher.last('tstate').soundOff, true);
+  s.eng.handle(s.kids[0], { t: 'tsound', off: false }); // 학생은 바꿀 수 없음
+  assert.strictEqual(s.room.soundOff, true);
+  s.eng.handle(s.teacher, { t: 'tsound', off: false });
+  assert.strictEqual(s.kids[0].last('state').soundOff, false);
+});

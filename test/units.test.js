@@ -13,14 +13,17 @@ const near = (x, y) => Math.abs(x - y) < 1e-9;
 test('준비된 단원: 6학년 수학 1~6단원 모두 + 5학년 단원', () => {
   assert.deepEqual(READY.slice(0, 6).map(u => u.id), ['frac', 'prism', 'dec', 'ratio', 'graph', 'cube']);
   const G5 = ['mix5', 'fac5', 'corr5', 'red5', 'fadd5', 'poly5', 'range5', 'fmul5', 'cong5', 'dmul5', 'cuboid5', 'avg5'];
-  assert.deepEqual(READY.slice(6).map(u => u.id), G5.filter(id => READY.some(u => u.id === id)));
+  const G6B = ['fdiv6b', 'space6b', 'ddiv6b', 'prop6b', 'circ6b', 'solid6b'];
+  const G4 = ['big4', 'angle4', 'muldiv4', 'move4', 'bar4', 'rule4', 'fadd4', 'tri4', 'dadd4', 'quad4', 'line4', 'poly4'];
+  const G3 = ['as3', 'plane3', 'div3a', 'mul3a', 'lt3', 'fd3', 'mul3b', 'div3b', 'circ3', 'frac3', 'cw3', 'pic3'];
+  assert.deepEqual(READY.slice(6).map(u => u.id), G5.concat(G6B, G4, G3).filter(id => READY.some(u => u.id === id)));
   const math = QB.subjects.find(s => s.id === 'math');
   assert.deepEqual(math.units.filter(u => !u.ready).map(u => u.id), []);
 });
 
 for (const u of READY) {
   test(`${u.name}: 평가요소 4~5 × (본 문항 10 + 추가 문제 8), 난이도·평가기준·제안 문구`, () => {
-    assert.ok(u.areas.length === 4 || u.areas.length === 5, u.id + ' 평가요소 수');
+    assert.ok(u.areas.length >= (/(4|3|3a|3b)$/.test(u.id) ? 3 : 4) && u.areas.length <= 5, u.id + ' 평가요소 수');
     const codes = u.standards.map(x => x.code);
     assert.ok(codes.length >= 1);
     for (const a of u.areas) {

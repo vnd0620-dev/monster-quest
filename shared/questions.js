@@ -65,7 +65,7 @@
   const FRAC = {
     id: 'frac', name: '1. 분수의 나눗셈', ready: true, dragon: '메가워드라몬', hue: 0, art: 'dragon', mons: ['용콩이', '비늘드라몬', '암흑바룡', '메가워드라몬'],
     standards: [
-      { code: '[6수01-10]', text: '(자연수)÷(자연수)에서 나눗셈의 몫을 분수로 나타낼 수 있다.' },
+      { code: '[6수01-10]', text: '‘(자연수)÷(자연수)’에서 나눗셈의 몫을 분수로 나타낼 수 있다.' },
       { code: '[6수01-11]', text: '분수의 나눗셈의 계산 원리를 탐구하고 그 계산을 할 수 있다.' },
     ],
     // 오답 보기마다 붙는 '실수 유형'. 리포트의 '자주 보인 실수'에 쓰입니다.
@@ -1220,6 +1220,16 @@
   const G5 = (typeof module === 'object' && module.exports && typeof require === 'function') ? require('./questions-g5.js')
     : ((typeof globalThis !== 'undefined' && globalThis.MQQuestionsG5) || { subjects: [] });
   for (const sj of G5.subjects) subjects.push(sj);
+  // 6학년 2학기 (scripts/g6b/ 에서 자동으로 만든 파일)
+  const G6B = (typeof module === 'object' && module.exports && typeof require === 'function') ? require('./questions-g6b.js')
+    : ((typeof globalThis !== 'undefined' && globalThis.MQQuestionsG6B) || { subjects: [] });
+  for (const sj of G6B.subjects) subjects.push(sj);
+  const G4 = (typeof module === 'object' && module.exports && typeof require === 'function') ? require('./questions-g4.js')
+    : ((typeof globalThis !== 'undefined' && globalThis.MQQuestionsG4) || { subjects: [] });
+  for (const sj of G4.subjects) subjects.push(sj);
+  const G3 = (typeof module === 'object' && module.exports && typeof require === 'function') ? require('./questions-g3.js')
+    : ((typeof globalThis !== 'undefined' && globalThis.MQQuestionsG3) || { subjects: [] });
+  for (const sj of G3.subjects) subjects.push(sj);
 
   const GRADES = [3, 4, 5, 6];
   for (const sj of subjects) for (const u of sj.units) for (const a of u.areas || []) for (const qq of a.questions) if (STEPS[qq.id]) qq.step = STEPS[qq.id];

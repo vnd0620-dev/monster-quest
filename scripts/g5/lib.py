@@ -36,6 +36,8 @@ def numval(s):
     m = NUM.match(re.sub(r'\s+', ' ', str(s).strip()))
     if not m:
         return None
+    if re.search(r'\d\s*[만억조](?=$|[\s원명개번권]|[^가-힣])', str(s)):
+        return None  # 540만, 3억 은 글자로 비교 (엔진과 같은 규칙)
     if m.group(2) is not None:
         return int(m.group(1)) + Fr(int(m.group(2)), int(m.group(3))) if int(m.group(3)) else None
     if m.group(4) is not None:
@@ -214,7 +216,7 @@ def lv(high, mid, low):
     return {'high': high, 'mid': mid, 'low': low}
 
 # ───── 조사 (받침 따라 이에요/예요, 을/를, 이/가, 은/는, 과/와) ─────
-_UNIT_B = {'kg': True, 'g': True, 'cm': False, 'm': False, 'km': False, 'L': False, 'mL': False, 'cm²': False, 'm²': False, 'km²': False,
+_UNIT_B = {'mm': False, 't': True, 'kg': True, 'g': True, 'cm': False, 'm': False, 'km': False, 'L': False, 'mL': False, 'cm²': False, 'm²': False, 'km²': False,
            'cm³': False, 'm³': False, '°': False, '%': False}
 def has_batchim(s):
     s = str(s).strip()
@@ -264,7 +266,7 @@ def ro(s):
     return f'{s}{"으로" if j not in (0, 8) else "로"}'
 
 # ───── 숫자 뒤 조사 자동 바로잡기 (문항을 만들 때 모든 글에 적용) ─────
-_JOSA_RE = re.compile(r'(\d+(?:/\d+)?|cm²|m²|km²|cm³|m³|cm|km|mL|kg|m|L|g)(이에요|예요|으로|로|이|가|을|를|은|는|과|와)(?=[\s.,)!?·]|$)')
+_JOSA_RE = re.compile(r'(\d+(?:/\d+)?|cm²|m²|km²|cm³|m³|cm|km|mm|mL|kg|m|L|g|(?<=\d )t)(이에요|예요|으로|로|이|가|을|를|은|는|과|와)(?=[\s.,)!?·]|$)')
 _PAIR = {'이에요': '예요', '예요': '이에요', '이': '가', '가': '이', '을': '를', '를': '을', '은': '는', '는': '은', '과': '와', '와': '과'}
 _NEED_B = {'이에요', '이', '을', '은', '과'}
 def fix_josa(t):

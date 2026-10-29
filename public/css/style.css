@@ -792,3 +792,14 @@ h1, h2, h3, h4 { font-family: var(--display); font-weight: 400; text-wrap: balan
 .mon.art.boss { filter: drop-shadow(0 0 20px rgba(255, 200, 90, .45)) drop-shadow(0 14px 18px rgba(0, 0, 0, .6)); }
 .mon.art img { filter: none; transform: none; object-position: 50% 100%; }
 .mon.art.thumb, .opt-mon .mon.art { filter: none; }
+
+/* 효과음 켜기/끄기 */
+.snd-btn { min-width: 40px; padding-inline: 8px; font-size: 18px; line-height: 1; }
+.snd-btn[disabled] { opacity: .55; }
+.j-btns { display: inline-flex; gap: 6px; align-items: center; }
+.j-btns .snd-btn { min-height: 40px; border-radius: 999px; }
+/* 단위가 주어진 답 칸: 학생은 숫자만 씀 */
+.frac-in.units { flex-wrap: wrap; row-gap: 6px; }
+.frac-in.units .num-box { width: 76px; }
+.frac-in.units .unit-mark { font-size: 22px; }
+.twin-row.has-boxes { flex-wrap: wrap; }

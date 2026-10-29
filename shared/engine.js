@@ -78,6 +78,7 @@
   function numVal(s) {
     const m = String(s == null ? '' : s).trim().replace(/\s+/g, ' ').match(/^(\d+)(?: (\d+)\/(\d+)|\/(\d+)|(\.\d+))?(?: ?[a-zA-Z가-힣²³%]*)?$/);
     if (!m) return null;
+    if (/\d\s*[만억조](?=$|[\s원명개번권]|[^가-힣])/.test(String(s))) return null; // 540만, 3억 처럼 만·억·조가 붙은 큰 수는 글자로 비교 (540과 같지 않음)
     if (m[2] != null) return +m[3] ? +m[1] + m[2] / m[3] : null;
     if (m[4] != null) return +m[4] ? m[1] / m[4] : null;
     return parseFloat(m[1] + (m[5] || ''));
@@ -88,7 +89,7 @@
     const av = numVal(input);
     return answers.some(x => {
       const b = norm(x);
-      if (a === b || (hasHangul(b) && a.replace(/ /g, '') === b.replace(/ /g, ''))) return true;
+      if (a === b || ((hasHangul(b) || /[a-z]/.test(b)) && a.replace(/ /g, '') === b.replace(/ /g, ''))) return true;
       const bv = numVal(x);
       return av != null && bv != null && Math.abs(av - bv) < 1e-9; // 2/3 과 4/6 처럼 크기가 같은 분수도 정답
     });
@@ -96,7 +97,18 @@
   const CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
   // 주관식 답 입력 칸 모양: 대분수(자연수·분자·분모 칸) / 분수(분자·분모 칸) / 글자
   // 정수(한 칸) / 소수(소수점 칸) / 비(□ : □) / 백분율(□ %)
-  const fmtOf = a => {
+  // 단위가 있는 답은 앱이 단위를 보여 주고 학생은 숫자만 씀: u1:단위(한 칸), u1d:단위(소수 한 칸), u2:단위:단위, u3:시:분:초
+  const LU = '(km|mm|cm|m|kg|g|t|mL|L)';
+  const unitFmt = s => {
+    const t = String(s || '').trim();
+    let m;
+    if ((m = t.match(new RegExp('^\\d+ ?' + LU + ' \\d+ ?' + LU + '$')))) return 'u2:' + m[1] + ':' + m[2];
+    if (/^\d+시 \d+분 \d+초$/.test(t)) return 'u3:시:분:초';
+    if ((m = t.match(/^\d+(시간|분) \d+(분|초)$/))) return 'u2:' + m[1] + ':' + m[2];
+    if ((m = t.match(new RegExp('^(\\d+(\\.\\d+)?) ?(cm²|m²|km²|cm³|m³|' + LU.slice(1, -1) + '|°|[가-힣]{1,2})$')))) return (m[2] ? 'u1d:' : 'u1:') + m[3];
+    return null;
+  };
+  const baseFmt = a => {
     const v = String(a || '').trim().replace(/\s*[a-zA-Z²³가-힣]+$/, '');
     if (/^\d+ \d+\/\d+$/.test(v)) return 'mixed';
     if (/^\d+\/\d+$/.test(v)) return 'frac';
@@ -105,6 +117,12 @@
     if (/^\d+\.\d+$/.test(v)) return 'dec';
     if (/^\d+$/.test(v)) return 'int';
     return 'text';
+  };
+  const fmtOf = a => {
+    const list = (Array.isArray(a) ? a : [a]).filter(x => x != null);
+    const base = baseFmt(list[0]);
+    if (base === 'text' || base === 'int' || base === 'dec') for (const x of list) { const u = unitFmt(x); if (u) return u; }
+    return base;
   };
   const chosung = s => String(s).replace(/[가-힣]/g, ch => CHO[Math.floor((ch.charCodeAt(0) - 0xac00) / 588)]);
   const bucket = wrong => (wrong === 0 ? 'first' : wrong <= 2 ? 'retry' : 'many');
@@ -243,7 +261,7 @@
       p.notes.unshift(Object.assign({ nid: uid(), unitName: unitOf(room).name, resolved: false, tries: 0, mineAll: [item.mine] }, item));
       if (p.notes.length > 80) p.notes.length = 80;
     }
-    const notesView = p => p.notes.map(n => ({ nid: n.nid, kind: n.kind, fmt: n.kind === 'q' ? null : fmtOf(n.answers && n.answers[0]), unitName: n.unitName, areaName: n.areaName, text: n.text, choices: n.choices, mine: n.mine, resolved: n.resolved, tries: n.tries, hint: n.tries >= 1 ? n.hints[Math.min(n.tries, 3) - 1] : null, explain: n.resolved ? n.explain : null }));
+    const notesView = p => p.notes.map(n => ({ nid: n.nid, kind: n.kind, fmt: n.kind === 'q' ? null : fmtOf(n.answers), unitName: n.unitName, areaName: n.areaName, text: n.text, choices: n.choices, mine: n.mine, resolved: n.resolved, tries: n.tries, hint: n.tries >= 1 ? n.hints[Math.min(n.tries, 3) - 1] : null, explain: n.resolved ? n.explain : null }));
 
     // ───── 모둠 ─────
     function newGroup(room) {
@@ -380,7 +398,7 @@
     }
     function studentState(room, p) {
       const u = unitOf(room), subj = QB.subjectOfUnit(u.id);
-      const st = { t: 'state', code: room.code, phase: room.phase, frozen: room.frozen, subjectName: subj ? subj.name : '', unitName: u.name, dragon: u.dragon, hue: u.hue, art: u.art ? `img/mon/${u.art}4.webp` : null, chatList: CHAT, giftKinds: GIFTS,
+      const st = { t: 'state', code: room.code, phase: room.phase, frozen: room.frozen, soundOff: !!room.soundOff, subjectName: subj ? subj.name : '', unitName: u.name, dragon: u.dragon, hue: u.hue, art: u.art ? `img/mon/${u.art}4.webp` : null, chatList: CHAT, giftKinds: GIFTS,
         me: { pid: p.pid, num: p.num, name: p.name, ok: p.stats.ok, points: p.points, equip: p.equip, owned: p.owned }, notes: p.notes.filter(n => !n.resolved).length, canShop: canShop(room, p) };
       if (room.phase === 'lobby' || room.phase === 'diagcount' || room.phase === 'diag') {
         // 대기 명단에는 이름만 (누가 레벨 테스트를 끝냈는지도 보여 주지 않음)
@@ -397,7 +415,7 @@
         const c = curOf(p);
         st.play = { qi: p.qi, per: room.settings.perStage, stageDone: !!p.stageDone };
         if (c && !p.stageDone) st.play.q = { id: c.id, areaName: c.areaName, text: c.text, choices: c.choices, tried: c.tried, eliminated: c.eliminated, gifts: c.gifts.map(x => ({ kind: x.kind, label: x.label, text: x.text })), elimOk: canElim(c), canKinds: Object.keys(GIFTS).filter(k => canUseKind(p, c, k)), steps: c.hints.slice(0, Math.min(3, c.tried.length)), canTake: canTakeGift(p, c) };
-        if (p.twin) st.play.twin = { id: p.twin.id, state: p.twin.state, allowed: p.twin.state === 'reward' ? allowedKinds(p, groupOf(room, p)) : undefined, fmt: p.twin.answers ? fmtOf(p.twin.answers[0]) : 'text', text: p.twin.text, areaName: p.twin.areaName, diff: p.twin.diff, tries: p.twin.tries, steps: p.twin.hints ? p.twin.hints.slice(0, Math.min(3, p.twin.tries)) : [] };
+        if (p.twin) st.play.twin = { id: p.twin.id, state: p.twin.state, allowed: p.twin.state === 'reward' ? allowedKinds(p, groupOf(room, p)) : undefined, fmt: p.twin.answers ? fmtOf(p.twin.answers) : 'text', text: p.twin.text, areaName: p.twin.areaName, diff: p.twin.diff, tries: p.twin.tries, steps: p.twin.hints ? p.twin.hints.slice(0, Math.min(3, p.twin.tries)) : [] };
         st.play.helpWanted = !!p.stageDone && !g.done && needyOf(room, g, p).length > 0; // 누가 막혔는지는 보내지 않음
       }
       if (room.phase === 'playing' && !g) st.waiting = true;
@@ -486,7 +504,7 @@
         };
       });
       const u = unitOf(room);
-      return { t: 'tstate', code: room.code, phase: room.phase, frozen: room.frozen, settings: room.settings, unitAreas: u.areas.map(a => ({ id: a.id, name: a.name, std: a.std })), players, groups: room.groups.map(g => groupViewTeacher(room, g)) };
+      return { t: 'tstate', code: room.code, phase: room.phase, frozen: room.frozen, soundOff: !!room.soundOff, settings: room.settings, unitAreas: u.areas.map(a => ({ id: a.id, name: a.name, std: a.std })), players, groups: room.groups.map(g => groupViewTeacher(room, g)) };
     }
     function studentDetail(room, p) {
       const g = groupOf(room, p), c = curOf(p);
@@ -726,6 +744,8 @@
               else if (room.rlog.frozenAt) { room.rlog.frozenMs += now() - room.rlog.frozenAt; room.rlog.frozenAt = null; }
             }
             room.frozen = !!m.on; return pushAll(room);
+          case 'tsound': // 학생 기기 효과음을 한 번에 끄기/켜기
+            room.soundOff = !!m.off; return pushAll(room);
           case 'tend':
             if (['diagcount', 'diag', 'grouped', 'countdown', 'playing'].indexOf(room.phase) < 0) return;
             return endGame(room);

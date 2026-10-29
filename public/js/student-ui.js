@@ -17,6 +17,11 @@
     opt = opt || {};
     const demo = !!opt.demo;
     root.classList.add('mq-root', 's-root');
+    // 효과음: 학생 기기는 작게. 선생님이 '학생 소리 끄기'를 누르면 울리지 않음
+    const sfx = window.MQSfx ? window.MQSfx.create({ key: 'mq_sound_s', volume: 0.3 }) : null;
+    const sound = name => { if (sfx && !(S.st && S.st.soundOff)) sfx.play(name); };
+    const soundBtn = () => { const off = S.st && S.st.soundOff, on = sfx && sfx.isOn() && !off;
+      return `<button type="button" class="btn sm btn-ghost snd-btn" data-act="sound" aria-pressed="${!!on}" ${off || !sfx ? 'disabled' : ''} title="${off ? '선생님이 학생 소리를 껐어요' : on ? '소리 끄기' : '소리 켜기'}" aria-label="${off ? '선생님이 학생 소리를 껐어요' : on ? '소리 끄기' : '소리 켜기'}">${on ? '🔊' : '🔇'}</button>`; };
     root.innerHTML = `
       <div class="toasts" aria-live="polite"></div>
       <div class="s-main"></div>
@@ -65,7 +70,7 @@
           S.st = m; render();
           if (S.shopOpen) { if (m.canShop) renderShop(); else closeShop(); }
           break;
-        case 'result': if (!m.correct) S.justWrong = true; break;
+        case 'result': if (!m.correct) S.justWrong = true; sound(m.correct ? 'correct' : 'wrong'); break;
         case 'fx': S.fx.push(m); break;
         case 'toast': toast($('.toasts'), m.msg); break;
         case 'notes':
@@ -131,7 +136,7 @@
 
     function topBar(st, withNotes) {
       return `<div class="s-top"><span class="me">${avatar(st.me.equip, 40, st.me.num)}${esc(st.me.num)}번 ${esc(st.me.name)}</span><span class="grow"></span>
-        <span class="s-chip">방 ${esc(st.code)}</span><span class="s-chip gold" title="포인트">⭐ ${esc(st.me.points)}</span>
+        ${soundBtn()}<span class="s-chip">방 ${esc(st.code)}</span><span class="s-chip gold" title="포인트">⭐ ${esc(st.me.points)}</span>
         <button type="button" class="btn sm btn-ghost" data-act="shop" ${st.canShop ? '' : 'disabled title="기다리는 시간이나 내 문제를 다 푼 뒤에 열려요"'}>🛒 상점</button>
         ${withNotes ? `<button type="button" class="btn sm btn-ghost notes-btn" data-act="notes">📒 오답노트${st.notes ? ` <b>${st.notes}</b>` : ''}</button>` : ''}</div>`;
     }
@@ -157,7 +162,7 @@
           : roomCells();
       const busy = !!S.pending;
       return `<div class="join-wrap">
-        <header class="j-top"><span class="j-logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFC547" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/><path d="m19 21 2-2"/></svg>협력 몬스터 퀴즈</span><button type="button" class="j-howto" data-act="intro">게임 방법</button></header>
+        <header class="j-top"><span class="j-logo"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFC547" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/><path d="m19 21 2-2"/></svg>협력 몬스터 퀴즈</span><span class="j-btns">${soundBtn()}<button type="button" class="j-howto" data-act="intro">게임 방법</button></span></header>
         <section class="j-scene" aria-label="오늘의 보스 등장">
           <i class="j-rays" aria-hidden="true"></i><i class="j-rays2" aria-hidden="true"></i><i class="j-glow" aria-hidden="true"></i><i class="j-halo" aria-hidden="true"></i>
           <img class="j-boss" src="img/mon/griffin4.webp" alt="그림자 속 오늘의 보스">
@@ -333,8 +338,12 @@
     }
 
     // 주관식 답 칸: 대분수는 자연수·분자·분모, 분수는 분자·분모, 그 밖에는 글자 칸
-    const BOXED = ['mixed', 'frac', 'int', 'dec', 'pct', 'ratio'];
+    const BOXED_LIST = ['mixed', 'frac', 'int', 'dec', 'pct', 'ratio'];
+    const BOXED = { indexOf: f => (BOXED_LIST.indexOf(f) >= 0 || /^u[123]d?:/.test(f || '')) ? 0 : -1 };
+    const UNITS = f => String(f).split(':').slice(1);
+    const glue = u => (/^[가-힣°]/.test(u) ? '' : ' ');
     const FMT_TIP = { mixed: '왼쪽 칸에 자연수, 오른쪽 위에 분자, 아래에 분모를 써요.', frac: '위 칸에 분자, 아래 칸에 분모를 써요.', dec: '소수점(.)까지 함께 써요. 예) 2.5', pct: '% 앞의 숫자만 써요.', ratio: '앞의 수와 뒤의 수를 각각 써요.', int: '숫자만 써요.' };
+    const tipOf = f => /^u/.test(f || '') ? '단위는 쓰지 않고 빈칸에 숫자만 써요.' + (/^u1d/.test(f) ? ' 소수점(.)도 함께 써요.' : '') : FMT_TIP[f];
     function ansInput(fmt, key, placeholder) {
       if (BOXED.indexOf(fmt) < 0) {
         const id = key === 'twin' ? 's-twin' : 'n-' + key;
@@ -342,7 +351,9 @@
         return `<input id="${id}" class="inp" type="text" maxlength="30" autocomplete="off" placeholder="${esc(placeholder)}" value="${esc(val)}">`;
       }
       const v = S.boxes[key] || {};
-      const box = (part, label) => `<input id="bx-${esc(key)}-${part}" class="inp num-box ${part === 'v' ? 'wide' : ''}" type="text" inputmode="${part === 'v' && fmt !== 'int' ? 'decimal' : 'numeric'}" maxlength="${part === 'v' ? 7 : 4}" autocomplete="off" aria-label="${label}" value="${esc(v[part] || '')}">`;
+      const box = (part, label) => `<input id="bx-${esc(key)}-${part}" class="inp num-box ${part === 'v' ? 'wide' : ''}" type="text" inputmode="${part === 'v' && fmt !== 'int' && !/^u1:/.test(fmt) ? 'decimal' : 'numeric'}" maxlength="${part === 'v' ? 7 : 'xyz'.indexOf(part) >= 0 ? 5 : 4}" autocomplete="off" aria-label="${label}" value="${esc(v[part] || '')}">`;
+      if (/^u1d?:/.test(fmt)) return `<div class="frac-in" role="group" aria-label="숫자로 답 쓰기">${box('v', '숫자')}<span class="unit-mark">${esc(UNITS(fmt)[0])}</span></div>`;
+      if (/^u[23]:/.test(fmt)) return `<div class="frac-in units" role="group" aria-label="숫자로 답 쓰기">${UNITS(fmt).map((u, i) => box('xyz'[i], u + ' 앞의 숫자') + `<span class="unit-mark">${esc(u)}</span>`).join('')}</div>`;
       if (fmt === 'int' || fmt === 'dec') return `<div class="frac-in" role="group" aria-label="${fmt === 'dec' ? '소수로 답 쓰기' : '숫자로 답 쓰기'}">${box('v', fmt === 'dec' ? '소수' : '숫자')}</div>`;
       if (fmt === 'pct') return `<div class="frac-in" role="group" aria-label="백분율로 답 쓰기">${box('v', '백분율 숫자')}<span class="unit-mark">%</span></div>`;
       if (fmt === 'ratio') return `<div class="frac-in" role="group" aria-label="비로 답 쓰기">${box('a', '앞의 수')}<span class="unit-mark">:</span>${box('b', '뒤의 수')}</div>`;
@@ -354,6 +365,8 @@
       if (BOXED.indexOf(fmt) < 0) return key === 'twin' ? S.twinText : (S.noteText[key] || '');
       const v = S.boxes[key] || {};
       const one = (v.v || '').trim();
+      if (/^u1d?:/.test(fmt)) { const u = UNITS(fmt)[0]; return one ? one + glue(u) + u : ''; }
+      if (/^u[23]:/.test(fmt)) { const us = UNITS(fmt), xs = us.map((_, i) => (v['xyz'[i]] || '').trim()); return xs.every(x => x) ? us.map((u, i) => xs[i] + glue(u) + u).join(' ') : ''; }
       if (fmt === 'int' || fmt === 'dec') return one;
       if (fmt === 'pct') return one ? one + '%' : '';
       if (fmt === 'ratio') { const a = (v.a || '').trim(), b = (v.b || '').trim(); return a && b ? `${a} : ${b}` : ''; }
@@ -385,7 +398,7 @@
           <p class="q-area">${esc(tw.areaName)}</p>
           <p class="twin-q">${math(tw.text)}</p>
           <form class="twin-row ${BOXED.indexOf(tw.fmt) >= 0 ? 'has-boxes' : ''}" data-form="twin">${ansInput(tw.fmt, 'twin', '정답을 직접 써 보세요')}<button class="btn btn-gold" type="submit">확인</button></form>
-          ${FMT_TIP[tw.fmt] ? `<p class="muted small">${FMT_TIP[tw.fmt]}</p>` : ''}
+          ${tipOf(tw.fmt) ? `<p class="muted small">${tipOf(tw.fmt)}</p>` : ''}
           ${tw.steps.map((h, i) => `<div class="step step${i + 1}">${STEP[i]} — ${math(h)}</div>`).join('')}
           ${tw.tries ? '<p class="saved">📒 오답노트에 자동 저장됐어요</p>' : '<p class="muted small">💡 방금 푼 문제와 같은 방법을 떠올려 보세요.</p>'}
           <button type="button" class="btn btn-ghost sm skip-btn" data-act="twinskip">📒 모르겠어요 · 오답노트에 저장하고 나가기</button>
@@ -561,14 +574,16 @@
       if (fill) requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = fill.dataset.to + '%'; }));
       const g = st && st.group;
       S.prevHp = g ? { gid: g.id, stage: g.stage, pct: g.hpMax ? g.hp / g.hpMax * 100 : 0 } : null;
+      // 모둠원 모두 해결 → 합동 공격 가능 알림음 (스테이지마다 한 번)
+      if (st && st.phase === 'playing' && g && g.ready && !g.done) { const k = st.code + g.id + g.stage; if (S.readySnd !== k) { S.readySnd = k; sound('ready'); } }
       const fx = S.fx; S.fx = [];
       for (const f of fx) {
         const wrap = main.querySelector('#s-monwrap'), mon = wrap && wrap.querySelector('.mon');
-        if (f.kind === 'hit' && mon) hitFx(wrap, mon, f.dmg, false, f.by);
+        if (f.kind === 'hit' && mon) hitFx(wrap, mon, f.dmg, false, f.by); // 친구 공격은 소리 없음 (내 공격은 정답 소리로 울림)
         if (f.kind === 'team') {
           const arenaEl = main.querySelector('#s-arena');
           if (arenaEl) { arenaEl.classList.remove('quake'); void arenaEl.offsetWidth; arenaEl.classList.add('quake'); }
-          showClear(f);
+          showClear(f); sound(f.last ? 'boss' : 'team');
         }
       }
     }
@@ -596,7 +611,8 @@
     function startCountdown(text) {
       stopCountdown();
       const ov = $('.ov-count'); ov.hidden = false;
-      [3, 2, 1].forEach((n, i) => S.cdT.push(setTimeout(() => { ov.innerHTML = `<div class="ov-box"><div class="cd-num">${n}</div><p>${esc(text)}</p></div>`; }, i * 1000)));
+      [3, 2, 1].forEach((n, i) => S.cdT.push(setTimeout(() => { ov.innerHTML = `<div class="ov-box"><div class="cd-num">${n}</div><p>${esc(text)}</p></div>`; sound('count'); }, i * 1000)));
+      S.cdT.push(setTimeout(() => sound('go'), 3000));
     }
     function stopCountdown() { S.cdT.forEach(clearTimeout); S.cdT = []; const ov = $('.ov-count'); ov.hidden = true; ov.innerHTML = ''; }
 
@@ -638,13 +654,14 @@
           net.send({ t: 'attack', stage: st.group.stage }); break;
         case 'twinpick': el.disabled = true; net.send({ t: 'twinpick', diff: Number(el.dataset.d) }); break;
         case 'twinskip': el.disabled = true; S.boxes.twin = {}; S.twinText = ''; net.send({ t: 'twinskip' }); break;
-        case 'hintpick': el.disabled = true; net.send({ t: 'hintpick', kind: el.dataset.k }); break;
-        case 'take': el.disabled = true; net.send({ t: 'take', kind: el.dataset.k }); break;
+        case 'hintpick': el.disabled = true; sound('hint'); net.send({ t: 'hintpick', kind: el.dataset.k }); break;
+        case 'take': el.disabled = true; sound('hint'); net.send({ t: 'take', kind: el.dataset.k }); break;
         case 'chat': net.send({ t: 'chat', emoji: el.dataset.e }); break;
         case 'hand': net.send({ t: 'hand', up: el.dataset.up === '1' }); break;
         case 'sv-pick': (S.survey || (S.survey = {}))[el.dataset.q] = Number(el.dataset.v); render(); break;
         case 'sv-send': if (st.survey && st.survey.qs.every(q => S.survey && S.survey[q.id] != null)) { S.surveySent = true; net.send({ t: 'survey', answers: S.survey }); render(); } break;
         case 'intro': openIntro(); break;
+        case 'sound': if (sfx) { sfx.toggle(); render(); } break;
         case 'intro-close': $('.ov-intro').hidden = true; break;
         case 'notes': S.notesOpen = true; S.notes = null; S.noteLast = null; renderNotes(); paintReadyBanner(st); net.send({ t: 'notes' }); break;
         case 'notes-close': S.notesOpen = false; $('.ov-notes').hidden = true; paintReadyBanner(S.st); break;
@@ -669,7 +686,7 @@
       else if (id && id.indexOf('n-') === 0) S.noteText[id.slice(2)] = e.target.value;
       else if (id && id.indexOf('bx-') === 0) {
         const part = id.slice(-1), key = id.slice(3, -2);
-        const v = part === 'v' ? e.target.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1').slice(0, 7) : e.target.value.replace(/\D/g, '').slice(0, 4);
+        const v = part === 'v' ? e.target.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1').slice(0, 7) : e.target.value.replace(/\D/g, '').slice(0, 'xyz'.indexOf(part) >= 0 ? 5 : 4);
         if (v !== e.target.value) e.target.value = v;
         (S.boxes[key] = S.boxes[key] || {})[part] = v;
       }

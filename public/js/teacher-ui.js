@@ -17,6 +17,8 @@
       <header class="t-head">
         <div class="t-brand"><span aria-hidden="true">🗡️</span> 협력 몬스터 퀴즈 <span class="pill">선생님 화면</span></div>
         <span class="t-phase" hidden></span><span class="grow"></span>
+        <button type="button" class="btn btn-ghost sm" data-act="snd-all" hidden></button>
+        <button type="button" class="btn btn-ghost sm" data-act="snd-me"></button>
         <button type="button" class="btn btn-ghost sm" data-act="ask-new" hidden>새 수업 만들기</button>
       </header>
       <div class="t-confirm" hidden></div>
@@ -28,6 +30,19 @@
       <div class="conn-bar" hidden>서버와 연결이 끊겼어요. 다시 연결하는 중…</div>`;
     const $ = s => root.querySelector(s);
     const body = $('.t-body');
+    // 효과음: 선생님 화면(TV)은 크게. 배경음악은 아직 없음(나중에 여기 붙이면 됨)
+    const sfx = window.MQSfx ? window.MQSfx.create({ key: 'mq_sound_t', volume: 0.7 }) : null;
+    const sound = n => { if (sfx) sfx.play(n); };
+    const SND = { prevPhase: null, prevCount: 0, cdT: [] };
+    function soundOnState(ts) {
+      const n = ts.players.filter(p => p.online && !p.bot).length;
+      if (ts.phase === 'lobby' && n > SND.prevCount && SND.prevPhase === 'lobby') sound('join');
+      SND.prevCount = n;
+      if ((ts.phase === 'countdown' || ts.phase === 'diagcount') && SND.prevPhase !== ts.phase) {
+        SND.cdT.forEach(clearTimeout); SND.cdT = [0, 1, 2].map(i => setTimeout(() => sound('count'), i * 1000)).concat(setTimeout(() => sound('go'), 3000));
+      }
+      SND.prevPhase = ts.phase;
+    }
 
     const T = { detail: null, detailPid: null, ts: null, code: null, key: null, draft: { grade: 6, subject: 'math', unit: 'frac', area: 'all', diff: 'auto', stages: 3, perStage: 3, diag: 4, size: 4 }, tab: 'grade', visited: new Set(['grade']), base: '', confirm: null, flash: {}, qrCache: {}, resuming: false };
     const saved = demo ? null : store.get('localStorage', 'mq_t');
@@ -47,12 +62,12 @@
     function onMessage(m) {
       switch (m.t) {
         case 'troom': T.code = m.code; T.key = m.key; T.resuming = false; if (!demo) store.set('localStorage', 'mq_t', { code: m.code, key: m.key }); break;
-        case 'tstate': T.ts = m; T.draft = Object.assign({}, m.settings); render(); break;
+        case 'tstate': T.ts = m; T.draft = Object.assign({}, m.settings); soundOnState(m); render(); break;
         case 'terror': store.del('localStorage', 'mq_t'); T.code = null; T.key = null; T.ts = null; T.resuming = false; render(); toast($('.toasts'), m.msg); break;
         case 'toast': toast($('.toasts'), m.msg); break;
         case 'tdetail': if (T.detailPid === m.pid) { T.detail = m; renderDetail(); } break;
         case 'tresearch': T.research = m; renderResearch(); break;
-        case 'tfx': T.flash[m.group] = Date.now(); toast($('.toasts'), m.last ? `🏆 ${m.team} 최종 보스 처치!` : `⚔️ ${m.team} 합동 공격 성공!`); break;
+        case 'tfx': sound(m.last ? 'boss' : 'team'); T.flash[m.group] = Date.now(); toast($('.toasts'), m.last ? `🏆 ${m.team} 최종 보스 처치!` : `⚔️ ${m.team} 합동 공격 성공!`); break;
       }
     }
 
@@ -230,6 +245,8 @@
       const ts = T.ts;
       $('.t-phase').hidden = !ts; if (ts) $('.t-phase').textContent = PHASE[ts.phase] || ts.phase;
       $('[data-act="ask-new"]').hidden = !ts;
+      { const b = $('[data-act="snd-me"]'), on = sfx && sfx.isOn(); b.textContent = on ? '🔊 내 소리' : '🔇 내 소리'; b.setAttribute('aria-pressed', String(!!on)); b.title = '이 화면(선생님) 효과음 켜기/끄기'; b.disabled = !sfx; }
+      { const b = $('[data-act="snd-all"]'); b.hidden = !ts; if (ts) { b.textContent = ts.soundOff ? '📱 학생 소리 꺼짐' : '📱 학생 소리 켜짐'; b.setAttribute('aria-pressed', String(!ts.soundOff)); b.title = '모든 학생 기기의 효과음을 한 번에 끄거나 켜요'; } }
       const cf = $('.t-confirm');
       if (T.confirm) {
         const txt = T.confirm === 'end' ? '게임을 끝낼까요? 학생 화면에 결과가 나와요.' : '지금 수업을 닫고 새 수업을 만들까요? 학생들은 새 방 번호로 다시 들어와야 하고, 협력 리포트도 사라져요. 필요하면 먼저 내려받아 두세요.';
@@ -421,6 +438,8 @@
         case 'freeze': net.send({ t: 'tfreeze', on: el.dataset.on === '1' }); break;
         case 'ask-end': T.confirm = 'end'; render(); break;
         case 'ask-new': T.confirm = 'new'; render(); break;
+        case 'snd-me': if (sfx) { sfx.toggle(); render(); } break;
+        case 'snd-all': if (T.ts) net.send({ t: 'tsound', off: !T.ts.soundOff }); break;
         case 'cancel': T.confirm = null; render(); break;
         case 'end': T.confirm = null; net.send({ t: 'tend' }); render(); break;
         case 'new': T.confirm = null; store.del('localStorage', 'mq_t'); T.code = null; T.key = null; T.ts = null; render(); break;
