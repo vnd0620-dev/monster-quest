@@ -45,51 +45,21 @@
     }
 
     const T = { detail: null, detailPid: null, ts: null, code: null, key: null, draft: { grade: 6, subject: 'math', unit: 'frac', area: 'all', diff: 'auto', stages: 3, perStage: 3, diag: 4, size: 4 }, tab: 'grade', visited: new Set(['grade']), base: '', confirm: null, flash: {}, qrCache: {}, resuming: false };
-    // ───── 구글 시트 자동 저장 (sheet-sync.js) ─────
-    // 게임이 끝나면 협력 리포트를 시트로 보냅니다. 설문은 게임이 끝난 뒤에 들어오므로
-    // 끝난 뒤 15분 동안 30초마다 리포트를 다시 받아, 바뀐 것이 있으면 같은 게임 줄을 새 값으로 바꿔 씁니다.
-    const SH = window.MQSheet && !demo ? window.MQSheet : null;
-    const SHEET = { url: SH ? (store.get('localStorage', 'mq_sheet_url') || '') : '', sent: (SH && store.get('localStorage', 'mq_sheet_sent')) || {}, status: '', poll: null, until: 0, busy: false, again: false };
-    const typingIn = el => !!(el && document.activeElement && el.contains(document.activeElement) && document.activeElement.tagName === 'INPUT');
-    const hhmm = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
-    function sheetStopPoll() { clearInterval(SHEET.poll); SHEET.poll = null; }
-    function sheetOnPhase(was, now) {
-      if (!SH || !SHEET.url) return;
-      if (now === 'ended' && was !== 'ended') {
-        net.send({ t: 'tresearch' });
-        sheetStopPoll(); SHEET.until = Date.now() + 15 * 60 * 1000;
-        SHEET.poll = setInterval(() => { if (Date.now() > SHEET.until) return sheetStopPoll(); net.send({ t: 'tresearch' }); }, 30 * 1000);
-      } else if (was === 'ended' && now !== 'ended') { sheetStopPoll(); net.send({ t: 'tresearch' }); } // 다시 하기 직전까지 들어온 설문도 담기
-    }
-    function sheetOnResearch(R, force) {
-      if (!SH || !SHEET.url || !R || R.empty || !(R.meta.ended || R.previous)) return;
-      if (R.summary.students && R.summary.surveyDone >= R.summary.students && !R.previous) sheetStopPoll(); // 설문을 모두 받았으면 그만 묻기
-      const payload = SH.build(R), id = payload.key.join(' '), fp = SH.hash(JSON.stringify(payload.tables));
-      if (!force && SHEET.sent[id] === fp) return;
-      if (SHEET.busy) { SHEET.again = true; return; }
-      SHEET.busy = true; SHEET.status = '📤 시트로 보내는 중…'; renderSheetBox();
-      SH.send(SHEET.url, payload).then(r => {
-        SHEET.busy = false;
-        if (r.ok) {
-          SHEET.sent[id] = fp;
-          const keys = Object.keys(SHEET.sent); if (keys.length > 30) delete SHEET.sent[keys[0]];
-          store.set('localStorage', 'mq_sheet_sent', SHEET.sent);
-          SHEET.status = r.confirmed ? `✅ ${hhmm()} 시트에 저장했어요 (${id})` : `📤 ${hhmm()} 시트로 보냈어요. 저장되었는지 시트에서 확인해 주세요 (${id})`;
-          toast($('.toasts'), r.confirmed ? '📗 구글 시트에 저장했어요.' : '📗 구글 시트로 보냈어요.');
-        } else { SHEET.status = `⚠️ ${hhmm()} 보내지 못했어요. ${r.msg}`; toast($('.toasts'), '⚠️ 구글 시트에 저장하지 못했어요. 협력 리포트 창을 확인해 주세요.'); }
-        renderSheetBox();
-        if (SHEET.again) { SHEET.again = false; if (T.research) sheetOnResearch(T.research); }
-      });
-    }
+    // ───── 구글 시트 자동 저장 (서버가 보냄) ─────
+    // 시트 주소는 Render 환경 변수(MQ_SHEET_URL)에만 있고, 이 화면에는 켜짐/꺼짐과 마지막 저장 결과만 보입니다.
+    const hhmm = ms => { const d = new Date(ms); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
     function sheetBoxHtml(R) {
-      if (!SH) return '';
-      const canSend = SHEET.url && R && !R.empty && (R.meta.ended || R.previous);
-      return `<section class="dl-box sheet-box"><h3>📗 구글 시트 자동 저장 ${SHEET.url ? '<span class="pill">켜짐</span>' : '<span class="pill">꺼짐</span>'}</h3>
-        <p class="small muted">Apps Script 웹 앱 주소를 넣어 두면 게임이 끝날 때 게임 요약 · 학생별 · 모둠별 · 힌트 주고받기 표가 시트 탭 4개에 줄로 이어 붙어요. 학생 이름은 보내지 않고 날짜 · 시작 시각 · 방 번호 · 학생 번호로 구분해요. 끝난 뒤 들어온 설문 답은 15분 동안 같은 게임 줄에 새로 반영해요. 주소는 이 브라우저에만 저장돼요.</p>
-        <div class="row wrap"><input id="t-sheet-url" class="inp sheet-url" type="url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(SHEET.url)}" aria-label="구글 시트 웹 앱 주소"><button type="button" class="btn btn-ghost sm" data-act="sheet-save">주소 저장</button>${SHEET.url ? '<button type="button" class="btn btn-ghost sm" data-act="sheet-off">자동 저장 끄기</button>' : ''}${canSend ? '<button type="button" class="btn btn-ghost sm" data-act="sheet-send">지금 시트로 보내기</button>' : ''}</div>
-        <p class="small sheet-status" aria-live="polite">${esc(SHEET.status)}</p></section>`;
+      const sh = !demo && T.ts && T.ts.sheet;
+      if (!sh) return '';
+      if (!sh.on) return `<section class="dl-box sheet-box"><h3>📗 구글 시트 자동 저장 <span class="pill">꺼짐</span></h3><p class="small muted">Render 설정(Environment)에 MQ_SHEET_URL을 넣으면 켜져요.</p></section>`;
+      const canSend = R && !R.empty && (R.meta.ended || R.previous);
+      const st = sh.at ? (sh.ok ? `✅ ${hhmm(sh.at)} 시트에 저장했어요.` : `⚠️ ${hhmm(sh.at)} 저장하지 못했어요. ${sh.msg} (30초·60초·90초 뒤 다시 보내요)`) : '';
+      return `<section class="dl-box sheet-box"><h3>📗 구글 시트 자동 저장 <span class="pill">켜짐</span></h3>
+        <p class="small muted">게임이 끝나면 게임 요약 · 학생별 · 모둠별 · 힌트 주고받기를 시트에 줄로 이어 붙여요. 끝난 뒤 들어온 설문 답도 같은 게임 줄에 반영해요. 학생 이름은 보내지 않고 날짜 · 시작 시각 · 방 번호 · 학생 번호로 구분해요.</p>
+        ${canSend ? '<div class="row wrap"><button type="button" class="btn btn-ghost sm" data-act="sheet-send" title="자동 저장이 실패했을 때 눌러요">지금 시트로 보내기</button></div>' : ''}
+        <p class="small sheet-status" aria-live="polite">${esc(st)}</p></section>`;
     }
-    function renderSheetBox() { const b = $('.ov-research .sheet-box'); if (b && !typingIn(b)) b.outerHTML = sheetBoxHtml(T.research); }
+    function renderSheetBox() { const b = $('.ov-research .sheet-box'); if (b) b.outerHTML = sheetBoxHtml(T.research); }
 
     const saved = demo ? null : store.get('localStorage', 'mq_t');
     if (saved && saved.code && saved.key) { T.code = saved.code; T.key = saved.key; T.resuming = true; }
@@ -108,11 +78,11 @@
     function onMessage(m) {
       switch (m.t) {
         case 'troom': T.code = m.code; T.key = m.key; T.resuming = false; if (!demo) store.set('localStorage', 'mq_t', { code: m.code, key: m.key }); break;
-        case 'tstate': { const was = T.ts && T.ts.phase; T.ts = m; T.draft = Object.assign({}, m.settings); soundOnState(m); render(); sheetOnPhase(was, m.phase); break; }
+        case 'tstate': T.ts = m; T.draft = Object.assign({}, m.settings); soundOnState(m); render(); renderSheetBox(); break;
         case 'terror': store.del('localStorage', 'mq_t'); T.code = null; T.key = null; T.ts = null; T.resuming = false; render(); toast($('.toasts'), m.msg); break;
         case 'toast': toast($('.toasts'), m.msg); break;
         case 'tdetail': if (T.detailPid === m.pid) { T.detail = m; renderDetail(); } break;
-        case 'tresearch': T.research = m; if (!typingIn($('.ov-research'))) renderResearch(); sheetOnResearch(m); break;
+        case 'tresearch': T.research = m; renderResearch(); break;
         case 'tfx': sound(m.last ? 'boss' : 'team'); T.flash[m.group] = Date.now(); toast($('.toasts'), m.last ? `🏆 ${m.team} 최종 보스 처치!` : `⚔️ ${m.team} 합동 공격 성공!`); break;
       }
     }
@@ -501,9 +471,7 @@
         case 'research-close': T.researchOpen = false; $('.ov-research').hidden = true; break;
         case 'research-refresh': net.send({ t: 'tresearch' }); break;
         case 'xlsx': downloadXlsx(); break;
-        case 'sheet-save': { const c = SH && SH.checkUrl(($('#t-sheet-url') || {}).value); if (!c) break; if (!c.ok) { SHEET.status = '⚠️ ' + c.msg; renderSheetBox(); break; } SHEET.url = c.url; store.set('localStorage', 'mq_sheet_url', c.url); SHEET.status = '주소를 저장했어요. 이제 게임이 끝나면 자동으로 시트에 저장해요.'; renderResearch(); break; }
-        case 'sheet-off': SHEET.url = ''; store.del('localStorage', 'mq_sheet_url'); sheetStopPoll(); SHEET.status = '자동 저장을 껐어요.'; renderResearch(); break;
-        case 'sheet-send': if (T.research) sheetOnResearch(T.research, true); break;
+        case 'sheet-send': net.send({ t: 'tsheet' }); toast($('.toasts'), '📤 시트로 보내는 중이에요.'); break;
         case 'botsdone': net.send({ t: 'tbotsdone' }); break;
         case 'bots': { const v = Math.round(Number(($('#t-bot-n') || {}).value)); if (v >= 1) { T.botN = Math.min(30, v); net.send({ t: 'tbots', n: T.botN }); toast($('.toasts'), `🤖 가상 친구 ${T.botN}명을 넣었어요. 레벨 테스트부터 스스로 풀어요. (협력 리포트에는 들어가지 않아요)`); } break; }
         case 'copy': {

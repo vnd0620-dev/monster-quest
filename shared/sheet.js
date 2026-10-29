@@ -1,22 +1,22 @@
-// 구글 시트 자동 저장 v1
+// 구글 시트 자동 저장 v2 (서버에서 보냄)
 // 협력 리포트(R)를 표 4개(게임 요약 · 학생별 · 모둠별 · 힌트 주고받기)로 바꿔
-// 선생님이 만든 Apps Script 웹 앱 주소로 보냅니다. 학생 이름은 보내지 않습니다.
+// Render 환경 변수 MQ_SHEET_URL에 넣은 Apps Script 웹 앱 주소로 보냅니다. 학생 이름은 보내지 않습니다.
 // 같은 게임(날짜 · 시작 시각 · 방 번호)을 다시 보내면 시트에서 그 게임 줄을 새 값으로 바꿉니다.
 (function (root) {
   'use strict';
-  const pad = n => String(n).padStart(2, '0');
   const sv = x => (x == null ? '' : x);
-  // 게임 시작 시각을 이 컴퓨터 시간대로 바꿉니다.
-  function stamp(iso) {
-    const d = new Date(iso);
-    return { day: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, time: `${pad(d.getHours())}:${pad(d.getMinutes())}` };
+  // 게임 시작 시각을 한국 시간(또는 MQ_TZ)으로 바꿉니다. 서버(Render)는 세계 표준시로 돌기 때문입니다.
+  function stamp(iso, tz) {
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone: tz || 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(iso));
+    const g = k => (parts.find(x => x.type === k) || {}).value;
+    return { day: `${g('year')}-${g('month')}-${g('day')}`, time: `${g('hour')}:${g('minute')}` };
   }
   const KEY_HEAD = ['날짜', '시작 시각', '방 번호'];
   const BAND_HEAD = ['학생 수', '문제 해결률(%)', '한 번에 맞힌 비율(%)', '만든 힌트(평균)', '받은 힌트(평균)', '손들기(평균)', '설문4 평균(0~2)', '설문5 평균(0~2)'];
   const bandCells = b => (b ? [b.n, sv(b.solveRate), sv(b.firstTryRate), sv(b.hintsMade), sv(b.hintsGot), sv(b.hands), sv(b.q4), sv(b.q5)] : BAND_HEAD.map(() => ''));
 
-  function build(R) {
-    const M = R.meta, S = R.summary, t = stamp(M.date), key = [t.day, t.time, String(M.code)];
+  function build(R, tz) {
+    const M = R.meta, S = R.summary, t = stamp(M.date, tz), key = [t.day, t.time, String(M.code)];
     const qAvg = id => { const q = (R.survey || []).find(x => x.id === id); return q ? sv(q.avg) : ''; };
     const games = {
       name: '게임 요약',
@@ -64,25 +64,20 @@
     return { ok: true, url: u };
   }
 
-  // 보내기: 먼저 답을 읽을 수 있는 방식으로 보내고, 브라우저가 답 읽기를 막으면(no-cors) 답 없이 한 번 더 보냅니다.
-  // 같은 게임은 시트에서 바꿔 쓰므로 두 번 들어가도 줄이 겹치지 않습니다.
+  // 보내기 (서버에서): Apps Script는 답을 다른 주소로 넘겨(302) 주므로 따라가서 JSON 답을 읽습니다.
   async function send(url, payload, fetchFn) {
-    const f = fetchFn || root.fetch.bind(root);
-    const body = JSON.stringify(payload), headers = { 'Content-Type': 'text/plain;charset=utf-8' };
+    const f = fetchFn || root.fetch;
     let res;
-    try { res = await f(url, { method: 'POST', body, headers, redirect: 'follow' }); }
-    catch (e) {
-      try { await f(url, { method: 'POST', body, headers, mode: 'no-cors' }); return { ok: true, confirmed: false }; }
-      catch (e2) { return { ok: false, msg: '인터넷 연결을 확인해 주세요.' }; }
-    }
+    try { res = await f(url, { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow' }); }
+    catch (e) { return { ok: false, msg: '구글에 연결하지 못했어요.' }; }
     let j = null;
     try { j = await res.json(); } catch (e) { /* 답이 JSON이 아님 */ }
-    if (j && j.ok) return { ok: true, confirmed: true };
+    if (j && j.ok) return { ok: true };
     if (j && j.error) return { ok: false, msg: '시트 쪽 오류: ' + j.error };
     return { ok: false, msg: `시트가 답하지 않았어요(${res.status}). 웹 앱 배포의 액세스가 '모든 사용자'인지 확인해 주세요.` };
   }
 
-  const api = { build, hash, checkUrl, send };
+  const api = { build, hash, checkUrl, send, stamp };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.MQSheet = api;
 })(typeof window !== 'undefined' ? window : globalThis);

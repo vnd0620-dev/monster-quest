@@ -1,16 +1,16 @@
-// 구글 시트 자동 저장: 앱이 만드는 표(sheet-sync.js)와 시트 쪽 Apps Script(docs/google-sheet-apps-script.gs)를 함께 검사합니다.
+// 구글 시트 자동 저장: 서버가 만드는 표(shared/sheet.js)와 시트 쪽 Apps Script(docs/google-sheet-apps-script.gs)를 함께 검사합니다.
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const { createEngine } = require('../shared/engine.js');
-const SH = require('../public/js/sheet-sync.js');
+const SH = require('../shared/sheet.js');
 
 function fakeConn() { const c = { ctx: {}, inbox: [], send(o) { c.inbox.push(JSON.parse(JSON.stringify(o))); } }; c.last = t => [...c.inbox].reverse().find(m => m.t === t); return c; }
-function playedGame(n, settings, survey) {
+function playedGame(n, settings, survey, extra) {
   const pending = [], clock = { t: 1.7e12 };
-  const eng = createEngine({ setTimeout: f => pending.push(f), now: () => clock.t, stuckMs: 60000 });
+  const eng = createEngine(Object.assign({ setTimeout: f => pending.push(f), now: () => clock.t, stuckMs: 60000 }, extra));
   const teacher = fakeConn();
   eng.handle(teacher, { t: 'tcreate', settings: Object.assign({ size: 4, stages: 2, perStage: 3, diag: 3 }, settings) });
   const code = teacher.last('troom').code, room = eng.rooms.get(code), flush = () => { while (pending.length) pending.shift()(); };
@@ -58,19 +58,44 @@ test('웹 앱 주소 확인', () => {
   assert.equal(SH.checkUrl('').ok, false);
 });
 
-test('보내기: 답을 읽으면 확인됨, 브라우저가 막으면 no-cors로 한 번 더, 시트 오류는 실패', async () => {
+test('보내기: JSON 답으로 성공·실패 판단', async () => {
   const calls = [];
   const ok = await SH.send('u', { a: 1 }, async (u, o) => { calls.push(o); return { status: 200, json: async () => ({ ok: true }) }; });
-  assert.deepEqual(ok, { ok: true, confirmed: true }); assert.equal(calls[0].headers['Content-Type'], 'text/plain;charset=utf-8');
-  const modes = [];
-  const blocked = await SH.send('u', {}, async (u, o) => { modes.push(o.mode || 'cors'); if (!o.mode) throw new TypeError('Failed to fetch'); return {}; });
-  assert.deepEqual(blocked, { ok: true, confirmed: false }); assert.deepEqual(modes, ['cors', 'no-cors']);
+  assert.deepEqual(ok, { ok: true }); assert.equal(calls[0].headers['Content-Type'], 'text/plain;charset=utf-8'); assert.equal(calls[0].redirect, 'follow');
   const bad = await SH.send('u', {}, async () => ({ status: 200, json: async () => ({ ok: false, error: '권한 없음' }) }));
   assert.equal(bad.ok, false); assert.match(bad.msg, /권한 없음/);
   const html = await SH.send('u', {}, async () => ({ status: 401, json: async () => { throw new Error('not json'); } }));
-  assert.equal(html.ok, false);
+  assert.equal(html.ok, false); assert.match(html.msg, /모든 사용자/);
   const off = await SH.send('u', {}, async () => { throw new TypeError('x'); });
   assert.equal(off.ok, false);
+});
+
+test('시작 시각은 서버 시간대와 상관없이 한국 시간', () => {
+  assert.deepEqual(SH.stamp('2026-10-29T00:05:00.000Z'), { day: '2026-10-29', time: '09:05' });
+  assert.deepEqual(SH.stamp('2026-10-29T15:30:00.000Z'), { day: '2026-10-30', time: '00:30' });
+});
+
+test('엔진: 게임이 끝날 때·끝난 뒤 설문이 들어올 때·다시 보내기를 누를 때 시트로 보냄', () => {
+  const calls = [];
+  const g = playedGame(3, {}, [0], { onReport: (R, code, force) => calls.push({ R, code, force }) });
+  // 끝날 때 1번 + 설문 1번 (tresearch는 보내지 않음)
+  assert.equal(calls.length, 2); assert.equal(calls[0].code, g.code); assert.equal(calls[0].force, false);
+  assert.equal(calls[0].R.summary.surveyDone, 0); assert.equal(calls[1].R.summary.surveyDone, 1);
+  g.eng.handle(g.teacher, { t: 'tsheet' }); assert.equal(calls.length, 3); assert.equal(calls[2].force, true);
+  // 결과는 교사 화면 상태로
+  assert.deepEqual(g.teacher.last('tstate').sheet, { on: true });
+  g.eng.sheetResult(g.code, { ok: false, msg: '권한 없음' });
+  const st = g.teacher.last('tstate').sheet; assert.equal(st.on, true); assert.equal(st.ok, false); assert.equal(st.msg, '권한 없음');
+  g.eng.sheetResult(g.code, { ok: true }); assert.equal(g.teacher.last('tstate').sheet.ok, true);
+  // 다시 하기 뒤에도 지난 게임을 다시 보낼 수 있음 (같은 게임)
+  g.eng.handle(g.teacher, { t: 'treset' }); g.eng.handle(g.teacher, { t: 'tsheet' });
+  assert.equal(calls.length, 4); assert.equal(calls[3].R.meta.date, calls[0].R.meta.date);
+  // 게임 중에는 보내지 않음
+  const h = playedGame(2, {}, [], { onReport: () => calls.push('x') });
+  const before = calls.length; h.eng.handle(h.teacher, { t: 'treset' }); h.eng.handle(h.teacher, { t: 'tdiag' }); h.eng.handle(h.teacher, { t: 'tsheet' });
+  assert.equal(calls.length, before + 1, '다시 하기 뒤 레벨 테스트 중에는 지난 게임만 보냄');
+  // 시트 설정이 없으면 꺼짐
+  const n = playedGame(2, {}, []); assert.deepEqual(n.teacher.last('tstate').sheet, { on: false });
 });
 
 // ───── Apps Script를 가짜 스프레드시트에서 돌려 봅니다 ─────

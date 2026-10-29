@@ -15,7 +15,32 @@ const PORT = Number(process.env.PORT) || 3000;
 const ROOTS = { '/shared/': path.join(__dirname, 'shared'), '/': path.join(__dirname, 'public') };
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.ico': 'image/x-icon', '.json': 'application/json; charset=utf-8' };
 
-const engine = createEngine();
+const SHEET = require('./shared/sheet.js');
+
+// 구글 시트 자동 저장: Render → Environment에 MQ_SHEET_URL(Apps Script 웹 앱 …/exec 주소)을 넣으면 켜집니다.
+const SHEET_URL = (() => { if (process.env.MQ_TEST === '1' && /^http:\/\/127\.0\.0\.1:\d+\//.test(process.env.MQ_SHEET_URL || '')) return process.env.MQ_SHEET_URL; // 자동 시험용 가짜 시트
+  const c = SHEET.checkUrl(process.env.MQ_SHEET_URL); if (process.env.MQ_SHEET_URL && !c.ok) console.log('  ⚠️ MQ_SHEET_URL 주소 모양이 이상해요: ' + c.msg); return c.ok ? c.url : null; })();
+const SHEET_TZ = process.env.MQ_TZ || 'Asia/Seoul';
+const sheetJobs = new Map(); // 방 번호 → { R, force, timer, sent(게임별 마지막으로 보낸 내용), tries }
+function queueSheet(R, code, force) {
+  const job = sheetJobs.get(code) || { sent: {}, tries: 0 };
+  sheetJobs.set(code, job);
+  job.R = R; job.force = job.force || force; job.tries = 0;
+  clearTimeout(job.timer);
+  job.timer = setTimeout(() => runSheet(code), force ? 0 : 4000); // 설문이 한꺼번에 들어오면 4초 모아서 한 번에 보냄
+}
+async function runSheet(code) {
+  const job = sheetJobs.get(code); if (!job || !job.R) return;
+  const payload = SHEET.build(job.R, SHEET_TZ), id = payload.key.join(' '), fp = SHEET.hash(JSON.stringify(payload.tables));
+  if (!job.force && job.sent[id] === fp) return;
+  const R = job.R, r = await SHEET.send(SHEET_URL, payload);
+  if (r.ok) { job.sent[id] = fp; if (job.R === R) { job.R = null; job.force = false; } }
+  else if (job.R === R && ++job.tries <= 3) job.timer = setTimeout(() => runSheet(code), 30000 * job.tries); // 실패하면 30초·60초·90초 뒤 다시
+  if (!r.ok) console.log(`  ⚠️ 시트 저장 실패 (방 ${code}): ${r.msg}`);
+  engine.sheetResult(code, r);
+}
+
+const engine = createEngine(SHEET_URL ? { onReport: queueSheet } : {});
 
 function lanAddress() {
   for (const list of Object.values(os.networkInterfaces())) for (const i of list || []) if (i.family === 'IPv4' && !i.internal) return i.address;
@@ -77,6 +102,7 @@ server.listen(PORT, () => {
   console.log('\n  🗡️  몬스터 퀘스트 서버가 켜졌어요!');
   console.log(`  이 컴퓨터에서 열기:   http://localhost:${PORT}`);
   if (ip) console.log(`  같은 와이파이 기기:   http://${ip}:${PORT}`);
+  console.log(SHEET_URL ? '  📗 구글 시트 자동 저장: 켜짐' : '  📗 구글 시트 자동 저장: 꺼짐 (MQ_SHEET_URL 없음)');
   console.log('  끄려면 이 창에서 Ctrl + C\n');
 });
 

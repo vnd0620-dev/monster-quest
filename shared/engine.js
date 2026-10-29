@@ -135,6 +135,8 @@
     const COUNTDOWN_MS = opt.countdownMs != null ? opt.countdownMs : 3000;
     const END_DELAY_MS = opt.endDelayMs != null ? opt.endDelayMs : 3500;
     const STUCK_MS = opt.stuckMs != null ? opt.stuckMs : 60000; // 이만큼 한 문제에 머물면 '도움이 필요한' 상태
+    // 구글 시트 자동 저장: 서버가 onReport(리포트, 방 번호, 다시 보내기)로 받아 시트에 보냅니다. 결과는 sheetResult로 돌려받습니다.
+    const onReport = typeof opt.onReport === 'function' ? opt.onReport : null;
 
     const R = (a, b) => a + Math.floor(rand() * (b - a + 1));
     const pick = a => a[R(0, a.length - 1)];
@@ -505,7 +507,7 @@
         };
       });
       const u = unitOf(room);
-      return { t: 'tstate', code: room.code, phase: room.phase, frozen: room.frozen, soundOff: !!room.soundOff, settings: room.settings, unitAreas: u.areas.map(a => ({ id: a.id, name: a.name, std: a.std })), players, groups: room.groups.map(g => groupViewTeacher(room, g)) };
+      return { t: 'tstate', code: room.code, sheet: onReport ? Object.assign({ on: true }, room.sheet || {}) : { on: false }, phase: room.phase, frozen: room.frozen, soundOff: !!room.soundOff, settings: room.settings, unitAreas: u.areas.map(a => ({ id: a.id, name: a.name, std: a.std })), players, groups: room.groups.map(g => groupViewTeacher(room, g)) };
     }
     function studentDetail(room, p) {
       const g = groupOf(room, p), c = curOf(p);
@@ -553,7 +555,19 @@
         pushAll(room);
       });
     }
-    function endGame(room) { room.token++; if (room.rlog && !room.rlog.end) { if (room.rlog.frozenAt) { room.rlog.frozenMs += now() - room.rlog.frozenAt; room.rlog.frozenAt = null; } room.rlog.end = now(); } room.phase = 'ended'; room.frozen = false; pushAll(room); }
+    function endGame(room) { room.token++; if (room.rlog && !room.rlog.end) { if (room.rlog.frozenAt) { room.rlog.frozenMs += now() - room.rlog.frozenAt; room.rlog.frozenAt = null; } room.rlog.end = now(); } room.phase = 'ended'; room.frozen = false; pushAll(room); reportSheet(room); }
+    // 끝난 게임(또는 다시 하기 뒤 남겨 둔 지난 게임)의 리포트를 시트로 보냅니다
+    function reportSheet(room, force) {
+      if (!onReport) return;
+      const R = room.rlog ? (room.phase === 'ended' ? research(room) : null) : room.prevResearch;
+      if (!R || R.empty) return;
+      try { onReport(R, room.code, !!force); } catch (e) { /* 시트 저장 실패가 게임을 멈추면 안 됨 */ }
+    }
+    function sheetResult(code, r) {
+      const room = rooms.get(code); if (!room) return;
+      room.sheet = { ok: !!r.ok, at: now(), msg: r.ok ? '' : String(r.msg || '') };
+      if (room.tconn) { send(room.tconn, teacherState(room)); if (r.ok) toast(room.tconn, '📗 구글 시트에 저장했어요.'); }
+    }
     function checkAllDone(room) {
       if (room.phase !== 'playing' || !room.groups.length || !room.groups.every(g => g.done)) return;
       const token = room.token;
@@ -778,6 +792,7 @@
             room.players.delete(p.pid);
             return pushAll(room);
           }
+          case 'tsheet': return reportSheet(room, true);
           case 'tresearch': return send(conn, room.rlog ? research(room) : room.prevResearch ? Object.assign({}, room.prevResearch, { previous: true }) : research(room));
           case 'tdetail': {
             const p = m.pid ? room.players.get(String(m.pid)) : null;
@@ -906,7 +921,9 @@
           const ans = {};
           for (const id of surveyQs(p)) { const v = intIn(m.answers && m.answers[id], 0, 2); if (v === null) return toast(conn, '모든 질문에 답해 주세요.'); ans[id] = v; }
           p.rs.survey = ans;
-          return pushAll(room);
+          pushAll(room);
+          if (room.phase === 'ended') reportSheet(room); // 끝난 뒤 들어온 설문도 시트에 반영 (서버가 몇 초씩 모아서 보냄)
+          return;
         }
         case 'chat': { // 이모지 반응: 한 번에 하나만, 프로필 오른쪽 위에 10초 동안 (같은 것을 다시 누르면 내림)
           if (CHAT.indexOf(m.emoji) < 0 || room.frozen) return;
@@ -1016,7 +1033,7 @@
       for (const [code, r] of rooms) if (!r.tconn && t - r.touched > maxIdleMs) rooms.delete(code);
     }
 
-    return { handle, disconnect, sweep, botTick, rooms };
+    return { handle, disconnect, sweep, botTick, rooms, sheetResult };
   }
 
   return { numVal, fmtOf, createEngine, DEFAULTS, SMALL, TEAM, CHAT, GIFTS, CATALOG, MAX_GIFTS, BOX_MAX, KIND_MAX, UNLOCK_BY, POINTS, matches, chosung };
