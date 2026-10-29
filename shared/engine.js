@@ -450,6 +450,7 @@
           extraSolved: p.stats.extra, hintsMade: madeCount(p), hintsUsedByFriends: usedByOthers.length, hintsGot: got.length, hintsGotSolved: got.filter(e => e.solved).length,
           hands: rs.hands || 0, handSec: sec(handMs), lowered: rs.lowered || 0, reacts: Object.values(rs.reacts || {}).reduce((a, b) => a + b, 0),
           notes: p.notes.length, notesResolved: p.notes.filter(n => n.resolved).length,
+          ok: p.stats.ok, hintsSent: p.stats.hintsSent, topMistake: (areas.flatMap(a => a.mistakes).sort((m, n) => n.count - m.count)[0] || {}).name || '', // 결과 리포트 칸 (구글 시트 저장용)
           levels: Object.fromEntries(areas.map(a => [a.name, { high: '상', mid: '중', low: '하', na: '확인 필요' }[a.level]])),
           survey: { q1: sv.q1 ?? null, q2: sv.q2 ?? null, q3: sv.q3 ?? null, q4: sv.q4 ?? null, q5: sv.q5 ?? null }, surveyDone: !!rs.survey,
         };

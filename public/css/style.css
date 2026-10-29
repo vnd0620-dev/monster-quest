@@ -803,3 +803,6 @@ h1, h2, h3, h4 { font-family: var(--display); font-weight: 400; text-wrap: balan
 .frac-in.units .num-box { width: 76px; }
 .frac-in.units .unit-mark { font-size: 22px; }
 .twin-row.has-boxes { flex-wrap: wrap; }
+/* 구글 시트 자동 저장 (v0.22) */
+.sheet-box .sheet-url { flex: 1 1 260px; font-size: 15px; padding: 8px 10px; }
+.sheet-box .sheet-status:empty { display: none; }

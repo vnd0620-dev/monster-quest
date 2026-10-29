@@ -45,6 +45,52 @@
     }
 
     const T = { detail: null, detailPid: null, ts: null, code: null, key: null, draft: { grade: 6, subject: 'math', unit: 'frac', area: 'all', diff: 'auto', stages: 3, perStage: 3, diag: 4, size: 4 }, tab: 'grade', visited: new Set(['grade']), base: '', confirm: null, flash: {}, qrCache: {}, resuming: false };
+    // ───── 구글 시트 자동 저장 (sheet-sync.js) ─────
+    // 게임이 끝나면 협력 리포트를 시트로 보냅니다. 설문은 게임이 끝난 뒤에 들어오므로
+    // 끝난 뒤 15분 동안 30초마다 리포트를 다시 받아, 바뀐 것이 있으면 같은 게임 줄을 새 값으로 바꿔 씁니다.
+    const SH = window.MQSheet && !demo ? window.MQSheet : null;
+    const SHEET = { url: SH ? (store.get('localStorage', 'mq_sheet_url') || '') : '', sent: (SH && store.get('localStorage', 'mq_sheet_sent')) || {}, status: '', poll: null, until: 0, busy: false, again: false };
+    const typingIn = el => !!(el && document.activeElement && el.contains(document.activeElement) && document.activeElement.tagName === 'INPUT');
+    const hhmm = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+    function sheetStopPoll() { clearInterval(SHEET.poll); SHEET.poll = null; }
+    function sheetOnPhase(was, now) {
+      if (!SH || !SHEET.url) return;
+      if (now === 'ended' && was !== 'ended') {
+        net.send({ t: 'tresearch' });
+        sheetStopPoll(); SHEET.until = Date.now() + 15 * 60 * 1000;
+        SHEET.poll = setInterval(() => { if (Date.now() > SHEET.until) return sheetStopPoll(); net.send({ t: 'tresearch' }); }, 30 * 1000);
+      } else if (was === 'ended' && now !== 'ended') { sheetStopPoll(); net.send({ t: 'tresearch' }); } // 다시 하기 직전까지 들어온 설문도 담기
+    }
+    function sheetOnResearch(R, force) {
+      if (!SH || !SHEET.url || !R || R.empty || !(R.meta.ended || R.previous)) return;
+      if (R.summary.students && R.summary.surveyDone >= R.summary.students && !R.previous) sheetStopPoll(); // 설문을 모두 받았으면 그만 묻기
+      const payload = SH.build(R), id = payload.key.join(' '), fp = SH.hash(JSON.stringify(payload.tables));
+      if (!force && SHEET.sent[id] === fp) return;
+      if (SHEET.busy) { SHEET.again = true; return; }
+      SHEET.busy = true; SHEET.status = '📤 시트로 보내는 중…'; renderSheetBox();
+      SH.send(SHEET.url, payload).then(r => {
+        SHEET.busy = false;
+        if (r.ok) {
+          SHEET.sent[id] = fp;
+          const keys = Object.keys(SHEET.sent); if (keys.length > 30) delete SHEET.sent[keys[0]];
+          store.set('localStorage', 'mq_sheet_sent', SHEET.sent);
+          SHEET.status = r.confirmed ? `✅ ${hhmm()} 시트에 저장했어요 (${id})` : `📤 ${hhmm()} 시트로 보냈어요. 저장되었는지 시트에서 확인해 주세요 (${id})`;
+          toast($('.toasts'), r.confirmed ? '📗 구글 시트에 저장했어요.' : '📗 구글 시트로 보냈어요.');
+        } else { SHEET.status = `⚠️ ${hhmm()} 보내지 못했어요. ${r.msg}`; toast($('.toasts'), '⚠️ 구글 시트에 저장하지 못했어요. 협력 리포트 창을 확인해 주세요.'); }
+        renderSheetBox();
+        if (SHEET.again) { SHEET.again = false; if (T.research) sheetOnResearch(T.research); }
+      });
+    }
+    function sheetBoxHtml(R) {
+      if (!SH) return '';
+      const canSend = SHEET.url && R && !R.empty && (R.meta.ended || R.previous);
+      return `<section class="dl-box sheet-box"><h3>📗 구글 시트 자동 저장 ${SHEET.url ? '<span class="pill">켜짐</span>' : '<span class="pill">꺼짐</span>'}</h3>
+        <p class="small muted">Apps Script 웹 앱 주소를 넣어 두면 게임이 끝날 때 게임 요약 · 학생별 · 모둠별 · 힌트 주고받기 표가 시트 탭 4개에 줄로 이어 붙어요. 학생 이름은 보내지 않고 날짜 · 시작 시각 · 방 번호 · 학생 번호로 구분해요. 끝난 뒤 들어온 설문 답은 15분 동안 같은 게임 줄에 새로 반영해요. 주소는 이 브라우저에만 저장돼요.</p>
+        <div class="row wrap"><input id="t-sheet-url" class="inp sheet-url" type="url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(SHEET.url)}" aria-label="구글 시트 웹 앱 주소"><button type="button" class="btn btn-ghost sm" data-act="sheet-save">주소 저장</button>${SHEET.url ? '<button type="button" class="btn btn-ghost sm" data-act="sheet-off">자동 저장 끄기</button>' : ''}${canSend ? '<button type="button" class="btn btn-ghost sm" data-act="sheet-send">지금 시트로 보내기</button>' : ''}</div>
+        <p class="small sheet-status" aria-live="polite">${esc(SHEET.status)}</p></section>`;
+    }
+    function renderSheetBox() { const b = $('.ov-research .sheet-box'); if (b && !typingIn(b)) b.outerHTML = sheetBoxHtml(T.research); }
+
     const saved = demo ? null : store.get('localStorage', 'mq_t');
     if (saved && saved.code && saved.key) { T.code = saved.code; T.key = saved.key; T.resuming = true; }
 
@@ -62,11 +108,11 @@
     function onMessage(m) {
       switch (m.t) {
         case 'troom': T.code = m.code; T.key = m.key; T.resuming = false; if (!demo) store.set('localStorage', 'mq_t', { code: m.code, key: m.key }); break;
-        case 'tstate': T.ts = m; T.draft = Object.assign({}, m.settings); soundOnState(m); render(); break;
+        case 'tstate': { const was = T.ts && T.ts.phase; T.ts = m; T.draft = Object.assign({}, m.settings); soundOnState(m); render(); sheetOnPhase(was, m.phase); break; }
         case 'terror': store.del('localStorage', 'mq_t'); T.code = null; T.key = null; T.ts = null; T.resuming = false; render(); toast($('.toasts'), m.msg); break;
         case 'toast': toast($('.toasts'), m.msg); break;
         case 'tdetail': if (T.detailPid === m.pid) { T.detail = m; renderDetail(); } break;
-        case 'tresearch': T.research = m; renderResearch(); break;
+        case 'tresearch': T.research = m; if (!typingIn($('.ov-research'))) renderResearch(); sheetOnResearch(m); break;
         case 'tfx': sound(m.last ? 'boss' : 'team'); T.flash[m.group] = Date.now(); toast($('.toasts'), m.last ? `🏆 ${m.team} 최종 보스 처치!` : `⚔️ ${m.team} 합동 공격 성공!`); break;
       }
     }
@@ -282,7 +328,7 @@
       if (!T.researchOpen) { ov.hidden = true; return; }
       const R = T.research;
       if (!R) { ov.innerHTML = '<div class="ov-box detail-box"><p class="muted">불러오는 중…</p></div>'; ov.hidden = false; return; }
-      if (R.empty) { ov.innerHTML = `<div class="ov-box detail-box"><div class="row"><h2 class="grow">📊 협력 리포트</h2><button type="button" class="btn btn-ghost sm" data-act="research-close">닫기 ✕</button></div><p class="muted">아직 게임 기록이 없어요. 게임을 시작하면 기록이 쌓여요.</p></div>`; ov.hidden = false; return; }
+      if (R.empty) { ov.innerHTML = `<div class="ov-box detail-box"><div class="row"><h2 class="grow">📊 협력 리포트</h2><button type="button" class="btn btn-ghost sm" data-act="research-close">닫기 ✕</button></div><p class="muted">아직 게임 기록이 없어요. 게임을 시작하면 기록이 쌓여요.</p>${sheetBoxHtml(R)}</div>`; ov.hidden = false; return; }
       const S = R.summary, M = R.meta;
       const tbl = (head, rows) => `<div class="tbl-wrap"><table class="tbl"><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${head.length}" class="muted">기록이 없어요</td></tr>`}</tbody></table></div>`;
       const stat = (v, label, tip) => `<div title="${esc(tip || '')}"><b>${v}</b><span>${label}</span></div>`;
@@ -292,6 +338,7 @@
         <p class="muted small">${esc(M.date.slice(0, 10))} · 방 ${esc(M.code)} · ${esc(M.unit)}${M.area !== '전체' ? ' · ' + esc(M.area) : ''} · 스테이지 ${M.stages} · 1인 ${M.perStage}문제 · 모둠 ${M.size}명 기준 · 게임 시간 ${M.minutes}분</p>
         <section class="dl-box"><h3>⬇️ 엑셀 파일로 내려받기</h3><p class="small muted">엑셀 파일 1개에 요약 · 레벨 집단 비교 · 설문 · 모둠별 · 학생별 · 힌트 주고받기가 시트별로 들어 있어요. 수업마다 내려받아 모아 두면 보고서 자료가 돼요.</p>
           <div class="row wrap"><button type="button" class="btn btn-gold" data-act="xlsx">⬇️ 학생 리포트 내려받기</button></div></section>
+        ${sheetBoxHtml(R)}
         <h3>한눈에 보기</h3>
         <div class="t-stats">${stat(pctTxt(S.allSolveRate), '전원 해결률', '모둠원 모두가 자기 문제를 해결해 합동 공격까지 간 스테이지의 비율')}${stat(pctTxt(S.solveRate), '평균 문제 해결률', '받은 문제 중 끝까지 해결한 비율의 평균')}${stat(`${S.hintsUsed}/${S.hintsMade}`, '쓰인 힌트/만든 힌트', '친구 힌트가 실제로 쓰인 수 / 만든 수')}${stat(pctTxt(S.hintSolvedRate), '친구 힌트 뒤 해결률', '친구 힌트를 쓴 문제를 결국 해결한 비율')}${stat(S.lowToHigh, '상위→하위 도움', '레벨 3~4 학생이 만든 힌트를 레벨 1~2 학생이 쓴 횟수')}${stat(n(S.avgGapSec) + '초', '평균 완료 격차', '모둠에서 첫 번째로 끝낸 학생과 마지막 학생 사이 시간의 평균')}${stat(S.hands, '손들기', '게임 중 손을 든 횟수 (선생님이 내려 준 횟수 ' + S.lowered + ')')}${stat(`${S.freezes}회 · ${S.frozenSec}초`, 'Freeze', '모두 멈춤 횟수와 멈춘 시간')}${stat(`${S.surveyDone}/${S.students}`, '설문 응답', '게임 끝 설문에 답한 학생 수')}</div>
         <h3>레벨 집단 비교 <span class="muted small">(레벨 테스트 기준)</span></h3>
@@ -454,6 +501,9 @@
         case 'research-close': T.researchOpen = false; $('.ov-research').hidden = true; break;
         case 'research-refresh': net.send({ t: 'tresearch' }); break;
         case 'xlsx': downloadXlsx(); break;
+        case 'sheet-save': { const c = SH && SH.checkUrl(($('#t-sheet-url') || {}).value); if (!c) break; if (!c.ok) { SHEET.status = '⚠️ ' + c.msg; renderSheetBox(); break; } SHEET.url = c.url; store.set('localStorage', 'mq_sheet_url', c.url); SHEET.status = '주소를 저장했어요. 이제 게임이 끝나면 자동으로 시트에 저장해요.'; renderResearch(); break; }
+        case 'sheet-off': SHEET.url = ''; store.del('localStorage', 'mq_sheet_url'); sheetStopPoll(); SHEET.status = '자동 저장을 껐어요.'; renderResearch(); break;
+        case 'sheet-send': if (T.research) sheetOnResearch(T.research, true); break;
         case 'botsdone': net.send({ t: 'tbotsdone' }); break;
         case 'bots': { const v = Math.round(Number(($('#t-bot-n') || {}).value)); if (v >= 1) { T.botN = Math.min(30, v); net.send({ t: 'tbots', n: T.botN }); toast($('.toasts'), `🤖 가상 친구 ${T.botN}명을 넣었어요. 레벨 테스트부터 스스로 풀어요. (협력 리포트에는 들어가지 않아요)`); } break; }
         case 'copy': {
