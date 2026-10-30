@@ -1,5 +1,5 @@
 # 4학년 문제 은행 공통 도구 (5학년 lib.py, 6-2 common.py를 함께 씀)
-import os, sys
+import os, re, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, '..', 'g6b'))
 sys.path.insert(1, os.path.join(HERE, '..', 'g5'))
@@ -35,6 +35,8 @@ def mixed(n):
 
 def shown(ans):
     """마지막 힌트에 보여 줄 정답: 마지막 정답을 쓰되, 띄어 쓴 같은 답이 있으면 그것으로 (12cm5mm → 12 cm 5 mm)"""
+    if re.search(r'[가-힣]', ans[0]) and not re.search(r'\d', ans[0]):
+        return ans[0]  # 말로 쓰는 답은 문제에 보기로 준 모양(첫 정답) 그대로
     c = ans[-1]
     for a in ans:
         if a.replace(' ', '') == c.replace(' ', '') and a.count(' ') > c.count(' '):

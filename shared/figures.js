@@ -505,16 +505,17 @@
   function protFig(d) {
     const cx = 160, cy = 170, R = 130;
     let body = `<path d="M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy} Z" fill="#fff6d6" stroke="${INK}" stroke-width="2"/><path d="M ${cx - R + 52} ${cy} A ${R - 52} ${R - 52} 0 0 1 ${cx + R - 52} ${cy}" fill="none" stroke="#e8d9a8" stroke-width="1"/>`;
+    let labs = ''; const halo = t => t.replace('<text ', '<text stroke="#fff6d6" stroke-width="3.2" paint-order="stroke" stroke-linejoin="round" '); // 숫자 둘레를 바탕색으로 덮어 각의 변이 숫자를 가리지 않게
     for (let a = 0; a <= 180; a += 5) {
       const big = a % 10 === 0, r0 = R - (big ? 12 : 7);
       body += line([cx + R * Math.cos(rad(a)), cy - R * Math.sin(rad(a))], [cx + r0 * Math.cos(rad(a)), cy - r0 * Math.sin(rad(a))], false, INK, big ? 1.4 : 0.9);
       if (big) { // 바깥 줄: 오른쪽 0°부터, 안쪽 줄: 왼쪽 0°부터 (실제 각도기처럼 두 줄)
-        const lift = a === 0 || a === 180 ? -3 : 3; // 0°·180°는 밑선(각의 변) 위로 올려 겹치지 않게
-        body += txt(cx + (R - 22) * Math.cos(rad(a)), cy - (R - 21) * Math.sin(rad(a)) + lift, a, a % 30 === 0 ? 11.5 : 10, 700, 'middle', a % 30 === 0 ? INK : '#6b6490');
-        body += txt(cx + (R - 41) * Math.cos(rad(a)), cy - (R - 41) * Math.sin(rad(a)) + lift, 180 - a, 9, 700, 'middle', '#9a6b2f');
+        const lift = a === 0 || a === 180 ? -5 : 3; // 0°·180°는 밑선(각의 변) 위로 올려 겹치지 않게
+        labs += halo(txt(cx + (R - 22) * Math.cos(rad(a)), cy - (R - 22) * Math.sin(rad(a)) + lift, a, a % 30 === 0 ? 11.5 : 10, 700, 'middle', a % 30 === 0 ? INK : '#6b6490'));
+        labs += halo(txt(cx + (R - 41) * Math.cos(rad(a)), cy - (R - 41) * Math.sin(rad(a)) + lift, 180 - a, 9, 700, 'middle', '#9a6b2f'));
       }
     }
-    body += line([cx, cy], [cx + R + 20, cy], false, BLUE, 2.4) + line([cx, cy], [cx + (R + 20) * Math.cos(rad(d)), cy - (R + 20) * Math.sin(rad(d))], false, BLUE, 2.4) + `<circle cx="${cx}" cy="${cy}" r="3.5" fill="${INK}"/>`;
+    body += line([cx, cy], [cx + R + 20, cy], false, BLUE, 2.4) + line([cx, cy], [cx + (R + 20) * Math.cos(rad(d)), cy - (R + 20) * Math.sin(rad(d))], false, BLUE, 2.4) + labs + `<circle cx="${cx}" cy="${cy}" r="3.5" fill="${INK}"/>`;
     return wrap(330, 196, body, '각도기 그림');
   }
   function triPts(A, B, base) { // 왼쪽 아래 각 A, 오른쪽 아래 각 B → 꼭짓점
