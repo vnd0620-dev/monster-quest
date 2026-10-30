@@ -96,7 +96,7 @@ def build():
                  f'첫 단계: {c}를 몇십으로 어림하여 몫을 예상해요', {'div': [a, c]})
     def dt(tid, d, a, c, what, text=None, unit=''):
         qq, r = dv(a, c); v = qq if what == 'q' else r
-        return t(tid, d, (text or f'{a} ÷ {c} 의 {"몫" if what == "q" else "나머지"}를 구하세요.') + ' (숫자만)', [str(v)] + ([f'{v}{unit}'] if unit else []), f'{c} × {qq} = {c * qq}', meta={'div': [a, c], 'what': what})
+        return t(tid, d, (text or f'{a} ÷ {c} 의 {"몫을" if what == "q" else "나머지를"} 구하세요.') + ' (숫자만)', [str(v)] + ([f'{v}{unit}'] if unit else []), f'{c} × {qq} = {c * qq}', meta={'div': [a, c], 'what': what})
     q, t = maker(b, '나누는 수가 두 자리 수이면 나누는 수를 몇십으로 어림하여 몫을 예상해요. 나머지는 나누는 수보다 작아야 해요.')
     A3 = area('d1', '몫이 한 자리 수인 나눗셈', '[4수01-07]',
         '나누는 수를 몇십으로 어림하여 몫을 예상한 뒤, 나누는 수 × 몫이 나누어지는 수를 넘지 않는지 확인해요. 예: 157 ÷ 23 → 23을 20으로 어림하면 몫은 7쯤 → 23 × 7 = 161 (너무 큼) → 23 × 6 = 138, 나머지 19',

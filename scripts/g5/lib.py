@@ -226,6 +226,8 @@ def has_batchim(s):
     if re.search(r'[가-힣]$', s):
         c = ord(s[-1]) - 0xAC00
         return c % 28 != 0
+    if re.search(r'[ㄱ-ㅎ]$', s):
+        return True  # 기역, 니은, 리을 … 자음 이름은 모두 받침으로 끝남
     m = re.search(r'(\d+)\s*$', s)
     if m:
         n = m.group(1)
@@ -239,7 +241,11 @@ def has_batchim(s):
         return has_batchim(s[:-1])
     return False
 
-def ieyo(s): return f'{s}{"이에요" if has_batchim(s) else "예요"}'
+_PRED = re.compile(r'(요|같다|다르다|크다|작다|많다|적다|이다|하다)$|^(네|예|아니요)$')
+def ieyo(s):
+    if _PRED.search(str(s).strip()):
+        return f"‘{s}’예요"  # ‘같아요’예요처럼 서술어가 겹치지 않게 따옴표로 묶음
+    return f'{s}{"이에요" if has_batchim(s) else "예요"}'
 def eul(s): return f'{s}{"을" if has_batchim(s) else "를"}'
 def iga(s): return f'{s}{"이" if has_batchim(s) else "가"}'
 def eun(s): return f'{s}{"은" if has_batchim(s) else "는"}'
@@ -250,6 +256,8 @@ def _final_jong(s):
     s = str(s).strip()
     if re.search(r'[가-힣]$', s):
         return (ord(s[-1]) - 0xAC00) % 28
+    if re.search(r'[ㄱ-ㅎ]$', s):
+        return 8 if s[-1] == 'ㄹ' else 1
     m = re.search(r'(\d+)\s*$', s)
     if m:
         n = m.group(1)
@@ -274,6 +282,7 @@ def fix_josa(t):
         return t
     t = re.sub(r'(\d) (이에요|예요)(?=[\s.,)!?]|$)', r'\1\2', t)
     t = re.sub(r'(\d) (은|는|이|가|을|를|과|와)(?= )', r'\1\2', t)
+    t = re.sub(r'(\d) (으로|로)(?= )', r'\1\2', t)
     def rep(m):
         w, j = m.group(1), m.group(2)
         if j in ('으로', '로'):
@@ -282,4 +291,6 @@ def fix_josa(t):
         b = has_batchim(w)
         right = j if ((j in _NEED_B) == b) else _PAIR[j]
         return w + right
-    return _JOSA_RE.sub(rep, t)
+    t = _JOSA_RE.sub(rep, t)
+    # 숫자 + 한 글자 단위(명, 분, 개 …) 뒤 이에요/예요: '15명예요' → '15명이에요'
+    return re.sub(r'(\d+\s?[가-힣])(이에요|예요)(?=[\s.,)!?]|$)', lambda m: m.group(1) + ('이에요' if has_batchim(m.group(1)) else '예요'), t)

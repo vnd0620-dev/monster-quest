@@ -344,6 +344,8 @@
     const glue = u => (/^[가-힣°]/.test(u) ? '' : ' ');
     const FMT_TIP = { mixed: '왼쪽 칸에 자연수, 오른쪽 위에 분자, 아래에 분모를 써요.', frac: '위 칸에 분자, 아래 칸에 분모를 써요.', dec: '소수점(.)까지 함께 써요. 예) 2.5', pct: '% 앞의 숫자만 써요.', ratio: '앞의 수와 뒤의 수를 각각 써요.', int: '숫자만 써요.' };
     const tipOf = f => /^u/.test(f || '') ? '단위는 쓰지 않고 빈칸에 숫자만 써요.' + (/^u1d/.test(f) ? ' 소수점(.)도 함께 써요.' : '') : FMT_TIP[f];
+    const V_MAX = 12; // 큰 수(예: 100000000, 12345654321)도 들어가게
+    const wideW = len => Math.max(110, 24 + 14 * len); // 숫자가 길어지면 칸도 넓어짐
     function ansInput(fmt, key, placeholder) {
       if (BOXED.indexOf(fmt) < 0) {
         const id = key === 'twin' ? 's-twin' : 'n-' + key;
@@ -351,7 +353,7 @@
         return `<input id="${id}" class="inp" type="text" maxlength="30" autocomplete="off" placeholder="${esc(placeholder)}" value="${esc(val)}">`;
       }
       const v = S.boxes[key] || {};
-      const box = (part, label) => `<input id="bx-${esc(key)}-${part}" class="inp num-box ${part === 'v' ? 'wide' : ''}" type="text" inputmode="${part === 'v' && fmt !== 'int' && !/^u1:/.test(fmt) ? 'decimal' : 'numeric'}" maxlength="${part === 'v' ? 7 : 'xyz'.indexOf(part) >= 0 ? 5 : 4}" autocomplete="off" aria-label="${label}" value="${esc(v[part] || '')}">`;
+      const box = (part, label) => `<input id="bx-${esc(key)}-${part}" class="inp num-box ${part === 'v' ? 'wide' : ''}" ${part === 'v' && (v.v || '').length > 6 ? `style="width:${wideW((v.v || '').length)}px" ` : ''}type="text" inputmode="${part === 'v' && fmt !== 'int' && !/^u1:/.test(fmt) ? 'decimal' : 'numeric'}" maxlength="${part === 'v' ? V_MAX : 'xyz'.indexOf(part) >= 0 ? 5 : 4}" autocomplete="off" aria-label="${label}" value="${esc(v[part] || '')}">`;
       if (/^u1d?:/.test(fmt)) return `<div class="frac-in" role="group" aria-label="숫자로 답 쓰기">${box('v', '숫자')}<span class="unit-mark">${esc(UNITS(fmt)[0])}</span></div>`;
       if (/^u[23]:/.test(fmt)) return `<div class="frac-in units" role="group" aria-label="숫자로 답 쓰기">${UNITS(fmt).map((u, i) => box('xyz'[i], u + ' 앞의 숫자') + `<span class="unit-mark">${esc(u)}</span>`).join('')}</div>`;
       if (fmt === 'int' || fmt === 'dec') return `<div class="frac-in" role="group" aria-label="${fmt === 'dec' ? '소수로 답 쓰기' : '숫자로 답 쓰기'}">${box('v', fmt === 'dec' ? '소수' : '숫자')}</div>`;
@@ -686,8 +688,9 @@
       else if (id && id.indexOf('n-') === 0) S.noteText[id.slice(2)] = e.target.value;
       else if (id && id.indexOf('bx-') === 0) {
         const part = id.slice(-1), key = id.slice(3, -2);
-        const v = part === 'v' ? e.target.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1').slice(0, 7) : e.target.value.replace(/\D/g, '').slice(0, 'xyz'.indexOf(part) >= 0 ? 5 : 4);
+        const v = part === 'v' ? e.target.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1').slice(0, V_MAX) : e.target.value.replace(/\D/g, '').slice(0, 'xyz'.indexOf(part) >= 0 ? 5 : 4);
         if (v !== e.target.value) e.target.value = v;
+        if (part === 'v') e.target.style.width = v.length > 6 ? wideW(v.length) + 'px' : '';
         (S.boxes[key] = S.boxes[key] || {})[part] = v;
       }
     });

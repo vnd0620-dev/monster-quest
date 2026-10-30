@@ -301,11 +301,11 @@
     } else if (kind === 'tri') {
       const a = v[0], h0 = v[1], k = fit(a, h0), w = a * k, h = h0 * k, x0 = (W - w) / 2, y0 = (H - h) / 2, ax = x0 + w * 0.35;
       P = [[ax, y0], [x0 + w, y0 + h], [x0, y0 + h]];
-      marks += T(x0 + w / 2, y0 + h + 22, lab(v[0])) + line([ax, y0], [ax, y0 + h], true, RED, 1.8) + right(ax, y0 + h, 1, -1) + T(ax + 6, y0 + h / 2 + 12, lab(v[1]), 'start', RED);
+      marks += T(x0 + w / 2, y0 + h + 22, lab(v[0])) + line([ax, y0], [ax, y0 + h], true, RED, 1.8) + right(ax, y0 + h, 1, -1) + T(ax + 6, y0 + h * 0.72 + 5, lab(v[1]), 'start', RED); // 아래쪽(넓은 곳)에 써서 변과 겹치지 않게
     } else if (kind === 'trap') {
       const a = v[0], bb = v[1], h0 = v[2], k = fit(bb, h0), w = bb * k, t = a * k, h = h0 * k, x0 = (W - w) / 2, y0 = (H - h) / 2, tx = x0 + (w - t) * 0.3;
       P = [[tx, y0], [tx + t, y0], [x0 + w, y0 + h], [x0, y0 + h]];
-      marks += T(tx + t / 2, y0 - 8, lab(v[0])) + T(x0 + w / 2, y0 + h + 22, lab(v[1])) + line([tx + t, y0], [tx + t, y0 + h], true, RED, 1.8) + right(tx + t, y0 + h, -1, -1) + T(tx + t + 6, y0 + h / 2 + 5, lab(v[2]), 'start', RED);
+      marks += T(tx + t / 2, y0 - 8, lab(v[0])) + T(x0 + w / 2, y0 + h + 22, lab(v[1])) + line([tx + t, y0], [tx + t, y0 + h], true, RED, 1.8) + right(tx + t, y0 + h, -1, -1) + T(tx + t - 6, y0 + h / 2 + 5, lab(v[2]), 'end', RED); // 높이 글자는 빗변과 겹치지 않게 높이선 왼쪽
     } else if (kind === 'rhom') {
       const d1 = v[0], d2 = v[1], k = fit(d1, d2), w = d1 * k, h = d2 * k, cx = W / 2, cy = H / 2;
       P = [[cx, cy - h / 2], [cx + w / 2, cy], [cx, cy + h / 2], [cx - w / 2, cy]];
@@ -494,7 +494,8 @@
   }
   function angFig(d, mode) {
     const W = 260, H = d > 90 ? 170 : 180, cx = d > 90 ? 150 : 50, cy = H - 30, L = 150;
-    let body = line([cx, cy], [cx + L * (d > 90 ? 0.65 : 1), cy]) + line([cx, cy], [cx + L * Math.cos(rad(d)) * (d > 90 ? 0.75 : 1), cy - L * Math.sin(rad(d)) * (d > 90 ? 0.75 : 1)]);
+    const la = Math.min(L * (d > 90 ? 0.75 : 1), (cy - 12) / Math.max(Math.sin(rad(d)), 0.01)); // 위쪽 변이 그림 틀 밖으로 나가지 않게
+    let body = line([cx, cy], [cx + L * (d > 90 ? 0.65 : 1), cy]) + line([cx, cy], [cx + la * Math.cos(rad(d)), cy - la * Math.sin(rad(d))]);
     body += `<circle cx="${cx}" cy="${cy}" r="3.5" fill="${INK}"/>`;
     if (d === 90) body += `<polyline points="${cx + 18},${cy} ${cx + 18},${cy - 18} ${cx},${cy - 18}" fill="none" stroke="${RED}" stroke-width="2"/>`;
     else body += arcPath(cx, cy, 30, 0, d);
@@ -608,8 +609,8 @@
     for (let i = 0; i <= gx; i++) body += line([ox + i * c, oy], [ox + i * c, oy + gy * c], false, '#ddd7f0', 1);
     for (let j = 0; j <= gy; j++) body += line([ox, oy + j * c], [ox + gx * c, oy + j * c], false, '#ddd7f0', 1);
     const P = (x, y) => [ox + x * c, oy + (gy - y) * c];
-    const a = P(x1, y1); body += `<circle cx="${a[0]}" cy="${a[1]}" r="6" fill="${RED}"/>` + txt(a[0] - 10, a[1] - 9, '가', 14, 700, 'middle', RED);
-    if (x2 !== 'n') { const b2 = P(x2, y2); body += `<circle cx="${b2[0]}" cy="${b2[1]}" r="6" fill="${BLUE}"/>` + txt(b2[0] + 11, b2[1] - 9, '나', 14, 700, 'middle', BLUE); }
+    const a = P(x1, y1); body += `<circle cx="${a[0]}" cy="${a[1]}" r="6" fill="${RED}"/>` + txt(a[0] - 10, a[1] < 30 ? a[1] + 20 : a[1] - 9, '가', 14, 700, 'middle', RED);
+    if (x2 !== 'n') { const b2 = P(x2, y2); body += `<circle cx="${b2[0]}" cy="${b2[1]}" r="6" fill="${BLUE}"/>` + txt(b2[0] + 11, b2[1] < 30 ? b2[1] + 20 : b2[1] - 9, '나', 14, 700, 'middle', BLUE); }
     return wrap(gx * c + 32, gy * c + 32, body, '점의 이동');
   }
 

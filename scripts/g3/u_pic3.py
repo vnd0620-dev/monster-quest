@@ -1,5 +1,5 @@
 # 3-2 6단원 그림그래프 [4수04-01] — 그림 pic:묶음:큰 그림:작은 그림:값… 의 값으로 정답 계산
-from common3 import Bank, area, lv, maker
+from common3 import Bank, area, lv, maker, ieyo
 
 STD = [('[4수04-01]', '자료를 수집하여 그림그래프나 막대그래프로 나타내고 해석할 수 있다.')]
 
@@ -24,7 +24,7 @@ def build():
         v = vals[k]; nb, ns = divmod(v, big); ns //= small
         w = [(f'{nb + ns}{unit}', 'icon'), (f'{nb * small + ns * big}{unit}' if nb * small + ns * big != v else f'{v + big}{unit}', 'icon'), (f'{vals[(k + 1) % len(vals)]}{unit}', 'item'), (f'{v + small}{unit}', 'count'), (f'{v - small}{unit}', 'count')]
         nm = SETS[st][k]
-        return q(qid, d, f'{P(st, big, small, vals)} {nm}의 {what}{"은" if (ord(what[-1]) - 0xAC00) % 28 else "는"} 몇 {unit.strip() or "개"}일까요?', f'{v}{unit}', w, f'큰 그림은 {big}, 작은 그림은 {small}을 나타내요.', f'큰 그림 {nb}개, 작은 그림 {ns}개 → {v}{unit}예요.', '첫 단계: 큰 그림과 작은 그림이 나타내는 수를 확인해요', {'pic': [st, big, small, vals], 'val': k})
+        return q(qid, d, f'{P(st, big, small, vals)} {nm}의 {what}{"은" if (ord(what[-1]) - 0xAC00) % 28 else "는"} 몇 {unit.strip() or "개"}일까요?', f'{v}{unit}', w, f'큰 그림은 {big}, 작은 그림은 {small}을 나타내요.', f'큰 그림 {nb}개, 작은 그림 {ns}개 → {ieyo(f'{v}{unit}')}.', '첫 단계: 큰 그림과 작은 그림이 나타내는 수를 확인해요', {'pic': [st, big, small, vals], 'val': k})
     def maxq(qid, d, st, big, small, vals, text, pick=max):
         i = vals.index(pick(vals)); nm = SETS[st]
         return q(qid, d, f'{P(st, big, small, vals)} {text}', nm[i], [(n, 'count') for j, n in enumerate(nm[:len(vals)]) if j != i], '큰 그림이 많은 것부터 비교해요.', f'{nm[i]}이 {vals[i]}로 가장 {"많아요" if pick is max else "적어요"}.', '첫 단계: 큰 그림의 수를 비교해요', {'pic': [st, big, small, vals], 'pick': 'max' if pick is max else 'min'})

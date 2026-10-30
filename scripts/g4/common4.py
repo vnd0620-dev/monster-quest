@@ -33,11 +33,19 @@ def mixed(n):
         if g: parts.append(f'{g}{name}')
     return ' '.join(parts) if parts else '0'
 
+def shown(ans):
+    """마지막 힌트에 보여 줄 정답: 마지막 정답을 쓰되, 띄어 쓴 같은 답이 있으면 그것으로 (12cm5mm → 12 cm 5 mm)"""
+    c = ans[-1]
+    for a in ans:
+        if a.replace(' ', '') == c.replace(' ', '') and a.count(' ') > c.count(' '):
+            c = a
+    return c
+
 def maker(b, H):
     """area 하나에서 쓰는 짧은 문항 함수: q(id, 난이도, 문제, 정답, 오답[(글, 유형)], 힌트2, 해설, 첫 단계, meta)"""
     def q(qid, d, text, ans, wrongs, h2, ex, step, meta=None, h1=None):
         return Q(b, qid, d, text, ans, wrongs, h1 or H, h2, ex, step, meta)
     def t(tid, d, text, ans, h2, h3=None, meta=None, h1=None):
         ans = ans if isinstance(ans, list) else [ans]
-        return T(b, tid, d, text, ans, h1 or H, h2, h3 or f'정답은 {ieyo(ans[-1])}.', meta)
+        return T(b, tid, d, text, ans, h1 or H, h2, h3 or f'정답은 {ieyo(shown(ans))}.', meta)
     return q, t

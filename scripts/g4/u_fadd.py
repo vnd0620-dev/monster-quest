@@ -158,7 +158,7 @@ def build():
              (fs(A - C - den, den) if A - C > den else fs(A - C + den, den), 'whole'), (fs(A - C + 1, den), 'calc'), (fs(A - C - 1, den), 'calc')]
         a, c = tm(w1, n1, den), tm(w2, n2, den)
         tx = text or f'{a} − {c}를 계산하세요.'
-        ex = (f'{a}를 {w1 - 1} {n1 + den}/{den}로 바꾸면 {w1 - 1 - w2} {n1 + den - n2}/{den}' if borrow else f'자연수끼리 {w1} − {w2} = {w1 - w2}, 분수끼리 {n1}/{den} − {n2}/{den} = {n1 - n2}/{den}') + f' → {ans}이에요.'
+        ex = (f'{a}를 {w1 - 1} {n1 + den}/{den}로 바꾸면 {w1 - 1} {n1 + den}/{den} − {c} = {ans}이에요.' if borrow else f'자연수끼리 {w1} − {w2} = {w1 - w2}, 분수끼리 {n1}/{den} − {n2}/{den} = {n1 - n2}/{den} → {ans}이에요.')
         return q(qid, d, tx, ans, w, '분수끼리 뺄 수 있는지 먼저 확인해요.', ex, '첫 단계: 분수 부분끼리 뺄 수 있는지 확인해요', {'expr': f'{a} − {c}'})
     def nsub(qid, d, w1, w2, n2, den, text=None):
         A, C = w1 * den, w2 * den + n2; ans = fs(A - C, den)

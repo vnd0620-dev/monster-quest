@@ -1,5 +1,5 @@
 # 4-1 5단원 막대그래프 [4수04-01] [4수04-03] — 그림 bar:묶음:한 칸 값:값… 의 값으로 정답을 계산
-from common4 import Bank, area, lv, maker
+from common4 import Bank, area, lv, maker, ieyo
 
 STD = [('[4수04-01]', '자료를 수집하여 그림그래프나 막대그래프로 나타내고 해석할 수 있다.'),
        ('[4수04-03]', '탐구 문제를 해결하기 위해 자료를 수집, 정리하여 막대그래프나 꺾은선그래프로 나타내고 해석할 수 있다.')]
@@ -26,7 +26,7 @@ def build():
     def maxq(qid, d, st, step, vals, word, text=None, pick=max):
         nm = SETS[st]; i = vals.index(pick(vals))
         return q(qid, d, f'{B(st, step, vals)} ' + (text or f'학생들이 좋아하는 {word}{jo(word, "을", "를")} 조사하여 나타낸 막대그래프입니다. 가장 많은 학생이 좋아하는 {word}{jo(word, "은", "는")}?'), nm[i],
-                 [(n, 'read') for k, n in enumerate(nm[:len(vals)]) if k != i], '가장 긴 막대를 찾아요.', f'막대가 가장 긴 {nm[i]}예요.', '첫 단계: 막대의 길이를 비교해요', {'bar': [st, step, vals], 'pick': 'max' if pick is max else 'min'})
+                 [(n, 'read') for k, n in enumerate(nm[:len(vals)]) if k != i], '가장 긴 막대를 찾아요.' if pick is max else '가장 짧은 막대를 찾아요.', f'막대가 가장 {"긴" if pick is max else "짧은"} {ieyo(nm[i])}.', '첫 단계: 막대의 길이를 비교해요', {'bar': [st, step, vals], 'pick': 'max' if pick is max else 'min'})
     def valq(qid, d, st, step, vals, k, text, unit='명'):
         v = vals[k]; others = [x for j, x in enumerate(vals) if j != k]
         return q(qid, d, f'{B(st, step, vals)} {text}', f'{v}{unit}', [(f'{v // step}{unit}', 'scale') if step > 1 else (f'{v + 1}{unit}', 'read'), (f'{others[0]}{unit}', 'item'), (f'{v + step}{unit}', 'read'), (f'{v - step}{unit}', 'read')],

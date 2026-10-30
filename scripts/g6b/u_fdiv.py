@@ -58,7 +58,7 @@ def build():
 
     def dt(tid, diff, expr, text=None, unit='', h1=H4, h2='나누는 수의 분모와 분자를 바꾸어 곱해요.'):
         ans = ev(expr)
-        t = (text + ' (숫자만, 분수는 3/4, 대분수는 1 1/2처럼)') if text else f'다음을 계산해 보세요.  {expr}'
+        t = (text + ' (숫자만)') if text else f'다음을 계산해 보세요.  {expr}'
         return T(b, tid, diff, t, [F(ans), F(ans, False)] if ans.denominator > 1 and ans > 1 else [F(ans)], h1, h2, f'정답은 {ieyo(F(ans) + unit)}.', {'expr': expr})
 
     A1 = area('sd', '분모가 같은 (분수)÷(분수)', '[6수01-11]',
