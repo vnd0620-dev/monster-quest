@@ -36,7 +36,7 @@ def build():
              (mvtxt(dy, 0), 'dir') if not dx else (mvtxt(0, dx), 'dir') if not dy else None, (mvtxt(dx - sg(dx), dy), 'cnt') if abs(dx) > 1 else (mvtxt(0, dy - sg(dy)), 'cnt') if abs(dy) > 1 else None]
         tags = None
         return q(qid, d, f'{MV(x1, y1, x2, y2)} 점 가를 점 나의 위치로 옮기려면 어떻게 이동해야 할까요?', ans, [x for x in c if x and x[0] != ans],
-                 '가에서 나까지 가로로 몇 칸, 세로로 몇 칸인지 세어요.', f'점 가를 {ans}하면 점 나에 와요.', '첫 단계: 가로 방향으로 몇 칸 가야 하는지 세어요', {'mv': [x1, y1, x2, y2], 'dx': dx, 'dy': dy})
+                 '가에서 나까지 가로로 몇 칸, 세로로 몇 칸인지 세어요.', f'점 가를 {ans}하면 점 나에 와요.', '첫 단계: ' + ('가로' if dx else '세로') + ' 방향으로 몇 칸 가야 하는지 세어요', {'mv': [x1, y1, x2, y2], 'dx': dx, 'dy': dy})
     A1 = area('pt', '점의 이동', '[4수03-05]',
         '점을 이동한 방법은 방향(오른쪽·왼쪽·위쪽·아래쪽)과 거리(칸 수 또는 cm)로 설명해요. 예: 점 가를 오른쪽으로 3칸, 위쪽으로 2칸 이동하면 점 나에 와요.',
         lv('점의 이동을 방향과 거리로 정확히 설명하고, 여러 번 이동한 결과를 추론할 수 있다.',

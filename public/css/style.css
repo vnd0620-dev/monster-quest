@@ -805,3 +805,5 @@ h1, h2, h3, h4 { font-family: var(--display); font-weight: 400; text-wrap: balan
 .twin-row.has-boxes { flex-wrap: wrap; }
 /* 구글 시트 자동 저장 (v0.22) */
 .sheet-box .sheet-status:empty { display: none; }
+/* 각도기(두 줄 눈금)는 휴대폰에서도 숫자가 읽히도록 더 크게 (v0.22.1) */
+.q-text .fig-wrap.fig-prot, .twin-q .fig-wrap.fig-prot { max-width: min(100%, 380px); }

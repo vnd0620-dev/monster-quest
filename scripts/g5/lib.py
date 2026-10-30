@@ -201,11 +201,35 @@ def Q(bank, qid, diff, text, answer, cands, hint1, hint2, explain, step, meta=No
     return {'id': qid, 'diff': diff, 'text': text, 'answer': answer, 'wrongs': [fix_josa(w) for w, _ in ws], 'mis': [t for _, t in ws],
             'hint1': hint1, 'hint2': hint2, 'explain': explain, 'step': step, 'meta': meta}
 
+# 같은 뜻의 다른 말투도 정답으로 (예: 같다 → 같아요, 같습니다, 같음, 같아)
+_SAME = [
+    ['같다', '같아요', '같습니다', '같음', '같아'],
+    ['다르다', '달라요', '다릅니다', '다름', '달라'],
+    ['크다', '커요', '큽니다', '큼'],
+    ['작다', '작아요', '작습니다', '작음'],
+    ['네', '예'],
+    ['아니요', '아니오'],
+    ['공정해요', '공정하다', '공정합니다', '공정함'],
+    ['공정하지 않아요', '공정하지 않다', '공정하지 않습니다', '불공정해요', '불공정하다'],
+    ['불가능하다', '불가능해요', '불가능합니다', '불가능'],
+    ['확실하다', '확실해요', '확실합니다', '확실'],
+    ['반반이다', '반반이에요', '반반입니다', '반반'],
+    ['셀 수 없이 많아요', '셀 수 없이 많다', '셀 수 없이 많습니다', '셀 수 없이 많음', '무수히 많아요', '무수히 많다'],
+]
+def widen(answers):
+    out = list(answers)
+    for a in answers:
+        for grp in _SAME:
+            if a in grp:
+                out += [x for x in grp if x not in out]
+    return out
+
 def T(bank, tid, diff, text, answers, h1, h2, h3, meta=None):
     bank.check_text(tid, text)
     assert meta is None or isinstance(meta, dict), f'{tid}: 인자 순서 확인 (meta={meta!r})'
     if isinstance(answers, str):
         answers = [answers]
+    answers = widen(answers)
     return {'id': tid, 'diff': diff, 'text': fix_josa(text), 'answers': answers, 'hints': [fix_josa(h1), fix_josa(h2), fix_josa(h3)], 'meta': meta}
 
 def area(aid, name, std, concept, criteria, student, teacher, questions, twins):

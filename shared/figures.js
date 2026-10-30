@@ -504,11 +504,15 @@
   }
   function protFig(d) {
     const cx = 160, cy = 170, R = 130;
-    let body = `<path d="M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy} Z" fill="#fff6d6" stroke="${INK}" stroke-width="2"/>`;
+    let body = `<path d="M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy} Z" fill="#fff6d6" stroke="${INK}" stroke-width="2"/><path d="M ${cx - R + 52} ${cy} A ${R - 52} ${R - 52} 0 0 1 ${cx + R - 52} ${cy}" fill="none" stroke="#e8d9a8" stroke-width="1"/>`;
     for (let a = 0; a <= 180; a += 5) {
       const big = a % 10 === 0, r0 = R - (big ? 12 : 7);
       body += line([cx + R * Math.cos(rad(a)), cy - R * Math.sin(rad(a))], [cx + r0 * Math.cos(rad(a)), cy - r0 * Math.sin(rad(a))], false, INK, big ? 1.4 : 0.9);
-      if (big) body += txt(cx + (R - 22) * Math.cos(rad(a)), cy - (R - 22) * Math.sin(rad(a)) + 3, a, a % 30 === 0 ? 10 : 8, 700, 'middle', a % 30 === 0 ? INK : '#6b6490');
+      if (big) { // 바깥 줄: 오른쪽 0°부터, 안쪽 줄: 왼쪽 0°부터 (실제 각도기처럼 두 줄)
+        const lift = a === 0 || a === 180 ? -3 : 3; // 0°·180°는 밑선(각의 변) 위로 올려 겹치지 않게
+        body += txt(cx + (R - 22) * Math.cos(rad(a)), cy - (R - 21) * Math.sin(rad(a)) + lift, a, a % 30 === 0 ? 11.5 : 10, 700, 'middle', a % 30 === 0 ? INK : '#6b6490');
+        body += txt(cx + (R - 41) * Math.cos(rad(a)), cy - (R - 41) * Math.sin(rad(a)) + lift, 180 - a, 9, 700, 'middle', '#9a6b2f');
+      }
     }
     body += line([cx, cy], [cx + R + 20, cy], false, BLUE, 2.4) + line([cx, cy], [cx + (R + 20) * Math.cos(rad(d)), cy - (R + 20) * Math.sin(rad(d))], false, BLUE, 2.4) + `<circle cx="${cx}" cy="${cy}" r="3.5" fill="${INK}"/>`;
     return wrap(330, 196, body, '각도기 그림');
@@ -671,13 +675,14 @@
       for (let j = 0; j < per; j++) body += `<circle cx="${bx + 7 + c / 2 + (j % 4) * c}" cy="${by + 7 + c / 2 + Math.floor(j / 4) * c}" r="8" fill="${i < k ? '#ff7aa8' : '#ffd76a'}" stroke="${INK}" stroke-width="1.2"/>`; }
     return wrap(W, H, body, '묶음 그림');
   }
+  const PIC_UNIT = { farm: '상자', store: '개' };
   function picFig(set, big, small, vals) {
     const names = SETS[set].slice(0, vals.length), rh = 34, ox = 90, W = 380;
     let body = line([ox, 10], [ox, 14 + rh * vals.length], false, INK, 1.2);
     vals.forEach((v, i) => { const y = 14 + i * rh + rh / 2, nb = Math.floor(v / big), ns = Math.round((v % big) / small); body += txt(ox - 10, y + 5, names[i], 13, 700, 'end'); body += line([10, 14 + (i + 1) * rh], [W - 10, 14 + (i + 1) * rh], false, '#ddd7f0', 1);
       let x = ox + 18; for (let j = 0; j < nb; j++) { body += `<circle cx="${x}" cy="${y}" r="12" fill="#ff9f7a" stroke="${INK}" stroke-width="1.4"/>`; x += 28; } for (let j = 0; j < ns; j++) { body += `<circle cx="${x - 4}" cy="${y}" r="6" fill="#7cc8ff" stroke="${INK}" stroke-width="1.2"/>`; x += 16; } });
-    const ly = 14 + rh * vals.length + 20;
-    body += `<circle cx="${ox + 18}" cy="${ly}" r="12" fill="#ff9f7a" stroke="${INK}" stroke-width="1.4"/>` + txt(ox + 36, ly + 5, big + '', 13, 700, 'start') + `<circle cx="${ox + 110}" cy="${ly}" r="6" fill="#7cc8ff" stroke="${INK}" stroke-width="1.2"/>` + txt(ox + 122, ly + 5, small + '', 13, 700, 'start');
+    const ly = 14 + rh * vals.length + 20, u = PIC_UNIT[set] || '명'; // 범례에 단위 (10명, 100상자 …)
+    body += `<circle cx="${ox + 18}" cy="${ly}" r="12" fill="#ff9f7a" stroke="${INK}" stroke-width="1.4"/>` + txt(ox + 36, ly + 5, big + u, 13, 700, 'start') + `<circle cx="${ox + 130}" cy="${ly}" r="6" fill="#7cc8ff" stroke="${INK}" stroke-width="1.2"/>` + txt(ox + 142, ly + 5, small + u, 13, 700, 'start');
     return wrap(W, ly + 22, body, '그림그래프');
   }
   function sclFig(max, v) {

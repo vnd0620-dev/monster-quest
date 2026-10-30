@@ -51,3 +51,22 @@ test('주관식 문제의 입력 예시가 정답을 알려 주지 않음', () =
   }
   assert.deepEqual(bad, []);
 });
+
+test('첫 힌트(공통 안내)의 예시가 그 문항의 식과 같지 않음', () => {
+  const bad = [];
+  for (const { unit, q } of all()) {
+    if (unit === 'frac' || unit === 'dec') continue; // 6학년 1학기 1·3단원은 문항마다 따로 쓴 첫 단계 힌트(정답은 보이지 않음)
+    const h1 = (q.hint1 || (q.hints || [])[0] || '').replace(/ /g, '');
+    const t = q.text.replace(/\[\[fig:[^\]]*\]\]/g, '');
+    const ex = [...t.matchAll(/\d+(?: \d+\/\d+|\/\d+|\.\d+)? ?[×÷+−] ?\d+(?: \d+\/\d+|\/\d+|\.\d+)?/g), ...t.matchAll(/\d+의 \d+\/\d+/g)].map(m => m[0]);
+    for (const e of ex) if (h1.includes(e.replace(/ /g, ''))) bad.push(`${unit} ${q.id}: 첫 힌트에 "${e}"가 그대로 있음`);
+  }
+  assert.deepEqual(bad, []);
+});
+
+test('같은 뜻의 다른 말투도 정답으로 받음', () => {
+  const { matches } = require('../shared/engine.js');
+  const t = QB.unitById('move4').areas.flatMap(a => a.twins).find(x => x.id === 'fl-t2');
+  for (const s of ['같다', '같아요', '같습니다', '같음']) assert.ok(matches(s, t.answers), s);
+  assert.ok(!matches('달라요', t.answers));
+});
