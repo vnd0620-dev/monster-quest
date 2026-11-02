@@ -76,6 +76,9 @@
     }
 
     function onMessage(m) {
+      // 방이 없을 때(새 수업 만들기를 누른 뒤) 지난 방에서 늦게 도착한 소식은 무시해요
+      if (!T.code && ['tstate', 'tdetail', 'tresearch', 'tfx'].indexOf(m.t) >= 0) return;
+      if (m.t === 'tstate' && m.code && m.code !== T.code) return;
       switch (m.t) {
         case 'troom': T.code = m.code; T.key = m.key; T.resuming = false; if (!demo) store.set('localStorage', 'mq_t', { code: m.code, key: m.key }); break;
         case 'tstate': T.ts = m; T.draft = Object.assign({}, m.settings); soundOnState(m); render(); renderSheetBox(); break;
@@ -459,7 +462,7 @@
         case 'snd-all': if (T.ts) net.send({ t: 'tsound', off: !T.ts.soundOff }); break;
         case 'cancel': T.confirm = null; render(); break;
         case 'end': T.confirm = null; net.send({ t: 'tend' }); render(); break;
-        case 'new': T.confirm = null; store.del('localStorage', 'mq_t'); T.code = null; T.key = null; T.ts = null; render(); break;
+        case 'new': net.send({ t: 'tleave' }); T.confirm = null; T.research = null; T.researchOpen = false; T.detailPid = null; T.detail = null; $('.ov-research').hidden = true; $('.ov-detail').hidden = true; store.del('localStorage', 'mq_t'); T.code = null; T.key = null; T.ts = null; render(); break;
         case 'reset': net.send({ t: 'treset' }); break;
         case 'kick': net.send({ t: 'tkick', pid: el.dataset.pid }); break;
         case 'qr-big': showBigQr(); break;

@@ -682,6 +682,12 @@
 
       switch (m.t) {
         case 'ping': return send(conn, { t: 'pong' });
+        case 'tleave': { // 선생님이 '새 수업 만들기'를 누름: 지난 방 소식을 더는 이 화면으로 보내지 않음 (학생들은 지난 방에 그대로 남아 오답노트 등을 계속할 수 있음)
+          const prev = ctx.role === 't' && ctx.room ? rooms.get(ctx.room) : null;
+          if (prev && prev.tconn === conn) prev.tconn = null;
+          conn.ctx = {};
+          return;
+        }
         case 'tcreate': {
           const room = { code: newCode(), key: uid(), tconn: conn, settings: cleanSettings(m.settings, DEFAULTS), phase: 'lobby', frozen: false, players: new Map(), groups: [], gseq: 0, token: 0, touched: now(), tdetail: null };
           rooms.set(room.code, room);

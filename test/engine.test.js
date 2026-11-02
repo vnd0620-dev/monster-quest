@@ -986,3 +986,16 @@ test('효과음: 선생님이 학생 소리를 한 번에 끄고 켬 (학생만 
   s.eng.handle(s.teacher, { t: 'tsound', off: false });
   assert.strictEqual(s.kids[0].last('state').soundOff, false);
 });
+
+test('새 수업 만들기(tleave) 뒤에는 지난 방 소식이 선생님 화면으로 오지 않음', () => {
+  const s = setup(2);
+  toPlaying(s, true);
+  s.eng.handle(s.teacher, { t: 'tend' });
+  s.eng.handle(s.teacher, { t: 'tleave' });
+  const before = s.teacher.inbox.length;
+  s.eng.handle(s.kids[0], { t: 'survey', answers: { q1: 2, q2: 2, q3: 2, q4: 2, q5: 2 } }); // 학생은 지난 방에서 계속 활동
+  assert.equal(s.teacher.inbox.length, before, '선생님에게 아무것도 오지 않아야 함');
+  assert.equal(s.room.tconn, null);
+  s.eng.handle(s.teacher, { t: 'tcreate', settings: {} }); // 같은 연결로 새 방
+  assert.notEqual(s.teacher.last('troom').code, s.code);
+});
