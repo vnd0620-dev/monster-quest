@@ -61,7 +61,7 @@ const server = http.createServer((req, res) => {
     const p = room && room.players.get(url.searchParams.get('pid'));
     const c = p && p.queue && p.queue[p.qi];
     res.writeHead(200, { 'content-type': MIME['.json'] });
-    return res.end(JSON.stringify(p ? { choice: c ? c.choices[c.answer] : null, index: c ? c.answer : null, twin: p.twin ? p.twin.answers[0] : null, diag: p.diag && !p.diag.done ? p.diag.qs[p.diag.idx].choices[p.diag.qs[p.diag.idx].answer] : null } : {}));
+    return res.end(JSON.stringify(p ? { choice: c ? c.choices[c.answer] : null, index: c ? c.answer : null, twin: p.twin && p.twin.answers ? p.twin.answers[0] : null, diag: p.diag && !p.diag.done ? p.diag.qs[p.diag.idx].choices[p.diag.qs[p.diag.idx].answer] : null } : {}));
   }
   let p;
   try { p = decodeURIComponent(url.pathname); } catch (e) { res.writeHead(400); return res.end(); }
