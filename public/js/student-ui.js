@@ -322,7 +322,9 @@
       if (S.selQ !== q.id) { S.sel = null; S.selQ = q.id; }
       const wrongNow = S.justWrong; S.justWrong = false;
       const usable = (g.boxKinds || []).some(k => k.count && (q.canKinds || []).indexOf(k.kind) >= 0);
-      const boxOffer = q.canTake && usable && !q.gifts.length
+      const boxOffer = q.offer && usable && !q.gifts.length
+        ? `<div class="box-offer friend-first" role="group" aria-label="친구 힌트 제안"><p class="ff-title">🎁 친구 힌트를 써 볼까요?</p><p class="small">모둠 친구들이 만든 힌트가 상자에 있어요. <b>하나만</b> 골라 써요.</p>${kindButtons(g, q)}<button type="button" class="btn btn-ghost sm ff-skip" data-act="decline">💪 혼자 더 해 볼게요</button></div>`
+        : q.canTake && usable && !q.gifts.length
         ? `<div class="box-offer"><p>🎁 <b>모둠 힌트 상자</b>에 친구들이 만든 힌트가 있어요. 필요하면 <b>하나만</b> 골라 써요. <span class="muted small">(누르기 전에는 쓰이지 않아요)</span></p>${kindButtons(g, q)}</div>` : '';
       return `<section class="s-card q-card ${wrongNow ? 'shake' : ''}">
         <div class="q-top"><p class="q-label">나의 문제 ${st.play.qi + 1} / ${st.play.per}</p><span class="q-area">${esc(q.areaName)}</span></div>
@@ -658,6 +660,7 @@
         case 'twinskip': el.disabled = true; S.boxes.twin = {}; S.twinText = ''; net.send({ t: 'twinskip' }); break;
         case 'hintpick': el.disabled = true; sound('hint'); net.send({ t: 'hintpick', kind: el.dataset.k }); break;
         case 'take': el.disabled = true; sound('hint'); net.send({ t: 'take', kind: el.dataset.k }); break;
+        case 'decline': el.disabled = true; net.send({ t: 'decline', qid: S.st && S.st.play && S.st.play.q ? S.st.play.q.id : null }); break;
         case 'chat': net.send({ t: 'chat', emoji: el.dataset.e }); break;
         case 'hand': net.send({ t: 'hand', up: el.dataset.up === '1' }); break;
         case 'sv-pick': (S.survey || (S.survey = {}))[el.dataset.q] = Number(el.dataset.v); render(); break;

@@ -807,3 +807,8 @@ h1, h2, h3, h4 { font-family: var(--display); font-weight: 400; text-wrap: balan
 .sheet-box .sheet-status:empty { display: none; }
 /* 각도기(두 줄 눈금)는 휴대폰에서도 숫자가 읽히도록 더 크게 (v0.22.1) */
 .q-text .fig-wrap.fig-prot, .twin-q .fig-wrap.fig-prot { max-width: min(100%, 380px); }
+/* 친구 힌트 먼저 제안 (v0.23) */
+.box-offer.friend-first { border: 3px solid var(--gold); background: rgba(255, 215, 106, .12); animation: ffPop .35s ease-out; }
+.box-offer.friend-first .ff-title { font-size: 22px; font-weight: 800; color: #9a6400; margin: 0 0 4px; }
+.box-offer.friend-first .ff-skip { margin-top: 10px; width: 100%; color: #2a2f5c; border-color: #b9b3d9; background: #fff; font-weight: 700; }
+@keyframes ffPop { from { transform: scale(.96); opacity: .4; } to { transform: none; opacity: 1; } }

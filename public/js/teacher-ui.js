@@ -332,7 +332,7 @@
     function sheetRows(k, R) {
       const M = R.meta, S = R.summary, sv = x => (x == null ? '' : x);
       if (k === 'summary') return [
-        ['항목', '값', '설명'], ['날짜', M.date.slice(0, 10), ''], ['방 번호', M.code, ''], ['단원', M.unit, ''], ['평가 요소', M.area, ''], ['스테이지 수', M.stages, ''], ['1인 문제 수', M.perStage, ''], ['모둠 인원 설정', M.size, ''], ['게임 시간(분)', M.minutes, ''],
+        ['항목', '값', '설명'], ['날짜', M.date.slice(0, 10), ''], ['방 번호', M.code, ''], ['단원', M.unit, ''], ['평가 요소', M.area, ''], ['스테이지 수', M.stages, ''], ['1인 문제 수', M.perStage, ''], ['모둠 인원 설정', M.size, ''], ['게임 시간(분)', M.minutes, ''], ['힌트 순서', M.hintOrder || '앱 힌트 먼저', '친구 힌트 먼저: 틀리면 모둠 힌트 상자를 먼저 제안하고 앱 힌트는 미뤄요(v0.23부터)'],
         ['학생 수', S.students, '가상 친구는 빼고 실제 학생만'], ['가상 친구 수', S.bots || 0, '모둠 활동에는 참여했지만 표에서는 뺐어요'], ['가상 친구 힌트를 쓴 횟수', S.hintsFromBots || 0, '실제 학생이 가상 친구가 만든 힌트를 쓴 횟수'], ['모둠 수', S.groups, ''], ['전원 해결률(%)', sv(S.allSolveRate), '모둠원 모두가 해결해 합동 공격까지 간 스테이지 비율'], ['최종 보스 처치 모둠 수', S.finishedGroups, ''],
         ['평균 문제 해결률(%)', sv(S.solveRate), '받은 문제 중 끝까지 해결한 비율의 평균'], ['만든 힌트 수', S.hintsMade, ''], ['쓰인 힌트 수', S.hintsUsed, ''], ['힌트 사용률(%)', sv(S.hintUseRate), '쓰인 힌트 ÷ 만든 힌트'],
         ['친구 힌트 뒤 해결률(%)', sv(S.hintSolvedRate), '친구 힌트를 쓴 문제를 결국 해결한 비율'], ['상위→하위 도움 횟수', S.lowToHigh, '레벨 3~4가 만든 힌트를 레벨 1~2가 쓴 횟수'], ['평균 완료 격차(초)', sv(S.avgGapSec), '모둠 안 첫 완료자와 마지막 완료자 사이 시간'],

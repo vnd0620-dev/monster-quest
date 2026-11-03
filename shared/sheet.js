@@ -23,11 +23,11 @@
       header: [...KEY_HEAD, '단원', '평가 요소', '스테이지 수', '1인 문제 수', '모둠 인원 설정', '게임 시간(분)', '학생 수', '가상 친구 수', '가상 친구 힌트를 쓴 횟수', '모둠 수',
         '전원 해결률(%)', '최종 보스 처치 모둠 수', '평균 문제 해결률(%)', '만든 힌트 수', '쓰인 힌트 수', '힌트 사용률(%)', '친구 힌트 뒤 해결률(%)', '상위→하위 도움 횟수', '평균 완료 격차(초)',
         '손들기 횟수', '선생님이 손 내려 준 횟수', 'Freeze 횟수', 'Freeze 시간(초)', '설문 응답 학생 수', '설문1 평균(0~2)', '설문2 평균(0~2)', '설문3 평균(0~2)', '설문4 평균(0~2)', '설문5 평균(0~2)',
-        ...BAND_HEAD.map(h => '하위 집단 ' + h), ...BAND_HEAD.map(h => '상위 집단 ' + h)],
+        ...BAND_HEAD.map(h => '하위 집단 ' + h), ...BAND_HEAD.map(h => '상위 집단 ' + h), '힌트 순서'],
       rows: [[...key, M.unit, M.area, M.stages, M.perStage, M.size, M.minutes, S.students, S.bots || 0, S.hintsFromBots || 0, S.groups,
         sv(S.allSolveRate), S.finishedGroups, sv(S.solveRate), S.hintsMade, S.hintsUsed, sv(S.hintUseRate), sv(S.hintSolvedRate), S.lowToHigh, sv(S.avgGapSec),
         S.hands, S.lowered, S.freezes, S.frozenSec, S.surveyDone, qAvg('q1'), qAvg('q2'), qAvg('q3'), qAvg('q4'), qAvg('q5'),
-        ...bandCells((R.bands || [])[0]), ...bandCells((R.bands || [])[1])]],
+        ...bandCells((R.bands || [])[0]), ...bandCells((R.bands || [])[1]), M.hintOrder || '앱 힌트 먼저']],
     };
     const students = {
       name: '학생별',

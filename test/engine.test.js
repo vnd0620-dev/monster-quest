@@ -265,21 +265,72 @@ test('새 게임을 시작하면 지난 게임의 추가 문제는 이어지지 
   assert.equal(s.P(a).twin, null);
 });
 
-test('친구 힌트 열림: 틀린 보기 지우기는 1번, 개념·풀이 힌트는 2번 틀리면 열린다', () => {
+test('친구 힌트 먼저(v0.23): 1번 틀리면 상자가 있을 때 친구 힌트를 먼저 제안하고 앱 힌트는 미룬다', () => {
   const s = setup(2); toPlaying(s, true);
   const [a, b] = s.kids;
   finishMine(s, a);
   s.room.groups[0].box.push({ id: 'k1', kind: 'concept', from: '학생1', fromPid: s.P(a).pid });
   assert.equal(b.last('state').play.q.canTake, false, '처음엔 혼자 생각');
   wrong(s, b);
-  assert.equal(b.last('state').play.q.steps.length, 1, '내 1차 힌트');
-  assert.deepEqual(b.last('state').play.q.canKinds, ['elim'], '1번 틀리면 보기 지우기만');
-  s.eng.handle(b, { t: 'take', kind: 'concept' });
-  assert.equal(cur(s, b).gifts.length, 0, '개념 힌트는 아직 못 씀');
-  wrong(s, b);
-  assert.deepEqual(b.last('state').play.q.canKinds, ['concept', 'step'], '2번 틀리면 보기 2개라 지우기는 못 쓰고 나머지 둘');
+  let q = b.last('state').play.q;
+  assert.equal(q.offer, true, '친구 힌트 제안');
+  assert.equal(q.steps.length, 0, '앱 힌트는 아직 안 보임');
+  assert.deepEqual(q.canKinds, ['elim', 'concept', 'step'], '모든 종류가 1번 틀리면 열림');
+  const before = a.inbox.length;
   s.eng.handle(b, { t: 'take', kind: 'concept' });
   assert.equal(cur(s, b).gifts.length, 1);
+  q = b.last('state').play.q;
+  assert.equal(q.offer, false); assert.equal(q.steps.length, 0, '친구 힌트를 쓴 틀림에는 앱 힌트를 보이지 않음');
+  assert.ok(a.inbox.slice(before).some(m => m.t === 'toast' && /내가 만든 개념 힌트를 친구가 썼어요/.test(m.msg)), '만든 학생에게 알림');
+  wrong(s, b); // 친구 힌트는 한 문제에 1개 → 이제 앱 힌트
+  q = b.last('state').play.q;
+  assert.equal(q.offer, false); assert.equal(q.steps.length, 1);
+});
+
+test('친구 힌트 먼저: [혼자 더 해 볼게요]를 누르면 앱 힌트가 나오고, 또 틀리면 다시 제안한다', () => {
+  const s = setup(2); toPlaying(s, true);
+  const [a, b] = s.kids;
+  finishMine(s, a);
+  s.room.groups[0].box.push({ id: 'k1', kind: 'step', from: '학생1', fromPid: s.P(a).pid });
+  wrong(s, b);
+  assert.equal(b.last('state').play.q.offer, true);
+  s.eng.handle(b, { t: 'decline' });
+  let q = b.last('state').play.q;
+  assert.equal(q.offer, false); assert.equal(q.steps.length, 1, '힌트 1이 나옴');
+  wrong(s, b);
+  q = b.last('state').play.q;
+  assert.equal(q.offer, true, '다시 제안'); assert.equal(q.steps.length, 1, 'AI 힌트는 아직');
+  s.eng.handle(b, { t: 'decline' });
+  assert.equal(b.last('state').play.q.steps.length, 2);
+});
+
+test('친구 힌트 먼저: 상자가 비어 있으면 지금처럼 앱 힌트가 바로 나오고, 제안 중 상자가 비면 미룬 앱 힌트가 나온다', () => {
+  const s = setup(3); toPlaying(s, true);
+  const [a, b, c] = s.kids;
+  wrong(s, b);
+  let q = b.last('state').play.q;
+  assert.equal(q.offer, false); assert.equal(q.steps.length, 1, '상자가 비면 앱 힌트 바로');
+  finishMine(s, a);
+  const g = s.room.groups[0];
+  if (s.P(c).group !== g.id) return; // 같은 모둠일 때만 확인
+  g.box.push({ id: 'k1', kind: 'concept', from: '학생1', fromPid: s.P(a).pid });
+  wrong(s, c);
+  assert.equal(c.last('state').play.q.offer, true);
+  g.box.length = 0; // 다른 친구가 먼저 가져감
+  s.eng.handle(s.teacher, { t: 'tfreeze', on: false }); // 아무 상태 갱신
+  wrong(s, b); // 상태 다시 보내기
+  q = c.last('state').play.q;
+  assert.equal(q.offer, false); assert.equal(q.steps.length, 1, '미뤄 둔 앱 힌트가 나옴');
+});
+
+test('리포트·시트에 힌트 순서가 들어감', () => {
+  const s = setup(2); toPlaying(s, true);
+  s.eng.handle(s.teacher, { t: 'tend' });
+  s.eng.handle(s.teacher, { t: 'tresearch' });
+  const R = s.teacher.last('tresearch');
+  assert.equal(R.meta.hintOrder, '친구 힌트 먼저');
+  const SH = require('../shared/sheet.js'); const p = SH.build(R);
+  assert.equal(p.tables[0].header.at(-1), '힌트 순서'); assert.equal(p.tables[0].rows[0].at(-1), '친구 힌트 먼저');
 });
 
 test('귀한 힌트: 1번 틀린 뒤 보기 지우기를 쓰면 오답 하나가 지워지고, 기록에 쓸 때 틀린 횟수가 남는다', () => {
