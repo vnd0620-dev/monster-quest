@@ -569,7 +569,7 @@
     function renderShop() {
       const st = S.st; if (!st) return;
       const me = st.me, owned = new Set(me.owned);
-      const items = S.catalog.filter(i => i.slot === S.shopTab);
+      const items = S.catalog.filter(i => i.slot === S.shopTab).sort((a, b) => a.price - b.price); // 싼 것부터
       const ov = $('.ov-shop');
       ov.innerHTML = `<div class="ov-box shop-box" role="dialog" aria-label="포인트 상점">
         <div class="shop-top">${avatar(me.equip, 84, me.num)}<div class="grow"><h2>🛒 포인트 상점</h2><p>내 포인트 <b class="gold-text">⭐ ${me.points}</b></p></div><button type="button" class="btn sm btn-ghost" data-act="shop-close">닫기 ✕</button></div>
@@ -617,8 +617,8 @@
 
     // 무기·펫 연출 (v0.24): 능력치는 없고 보이는 효과만 달라요. 비싼 무기일수록 숫자와 효과가 커요.
     const itemOf = id => (id && (S.catalog || []).find(i => i.id === id)) || null;
-    const weaponDmg = it => (!it ? 40 : it.price >= 200 ? 80 : it.price >= 100 ? 70 : it.price >= 50 ? 60 : 50); // 서버(engine.js WEAPON_DMG)와 같은 표
-    const tierOf = it => (!it ? 0 : it.price >= 200 ? 4 : it.price >= 100 ? 3 : it.price >= 50 ? 2 : 1);
+    const weaponDmg = it => (it && it.dmg) || 40; // 서버가 상점 목록에 함께 보내 줌 (engine.js WEAPON_DMG)
+    const tierOf = it => (!it ? 0 : Math.max(1, Math.min(4, (weaponDmg(it) - 40) / 10))); // 데미지 50·60·70·80 → 연출 1~4단계
     const TIER_WORD = ['', '', '', '💥 강한 공격!', '🌟 필살기!'];
     function addEl(wrap, cls, html, ms, delay) {
       const go = () => { const el = document.createElement('div'); el.className = cls; el.innerHTML = html; el.setAttribute('aria-hidden', 'true'); wrap.appendChild(el); setTimeout(() => el.remove(), ms); };

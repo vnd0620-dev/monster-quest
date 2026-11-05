@@ -424,7 +424,10 @@ test('상점: 기다리는 때·내 문제를 다 푼 뒤에만 열리고, 포�
   finishMine(s, a);
   const st = a.last('state');
   assert.equal(st.canShop, true);
-  assert.ok(st.me.points >= 20);
+  assert.ok(st.me.points >= 30);
+  s.eng.handle(a, { t: 'buy', id: 'h_cap' });
+  assert.equal(s.P(a).owned.length, 0, '50별짜리라 아직 못 삼');
+  s.P(a).points = 100;
   s.eng.handle(a, { t: 'buy', id: 'h_cap' });
   assert.ok(s.P(a).owned.includes('h_cap'));
   assert.equal(s.P(a).equip.hat, 'h_cap');
@@ -1124,8 +1127,8 @@ test('추가 문제(주관식)를 틀려도 체력은 그대로', () => {
 test('무기 데미지: 무기 없음 40, 값에 따라 50·60·70·80', () => {
   const { dmgOf } = require('../shared/engine.js');
   const eq = w => ({ equip: { weapon: w } });
-  assert.equal(dmgOf(eq(undefined)), 40); assert.equal(dmgOf(eq('w_book')), 50); assert.equal(dmgOf(eq('w_bow')), 60);
-  assert.equal(dmgOf(eq('w_trident')), 70); assert.equal(dmgOf(eq('w_light')), 80); assert.equal(dmgOf(eq('h_cap')), 40, '무기 칸이 아닌 물건은 무시');
+  assert.equal(dmgOf(eq(undefined)), 40); assert.equal(dmgOf(eq('w_book')), 50); assert.equal(dmgOf(eq('w_hammer')), 60);
+  assert.equal(dmgOf(eq('w_trident')), 70); assert.equal(dmgOf(eq('w_boomer')), 80); assert.equal(dmgOf(eq('w_light')), 80); assert.equal(dmgOf(eq('h_cap')), 40, '무기 칸이 아닌 물건은 무시');
 });
 
 test('무기를 끼면 맞힐 때 데미지가 커지고, 몬스터 체력도 모둠원 무기에 맞춰 늘어나 모두 맞히면 딱 합동 공격만 남음', () => {
@@ -1144,14 +1147,27 @@ test('무기를 끼면 맞힐 때 데미지가 커지고, 몬스터 체력도 �
 });
 
 // ───── v0.24 별 누적 ─────
-test('비싼 물건: 슬롯마다 200~500 별짜리 5개씩', () => {
+test('상점 가격: 슬롯마다 가장 싼 것 50, 가장 비싼 것 300, 값 순서로 이웃한 물건끼리 50 넘게 차이 나지 않음', () => {
   const { CATALOG } = require('../shared/engine.js');
-  for (const slot of ['hat', 'glasses', 'weapon', 'pet', 'bg']) {
-    const pricey = CATALOG.filter(i => i.slot === slot && i.price >= 200 && i.price <= 500 && /^(h_knight|h_mush|h_pumpkin|h_fire|h_gem|g_swirl|g_ice|g_bolt|g_moon|g_crystal|w_twin|w_boomer|w_axe|w_comet|w_light|p_lion|p_dolphin|p_dino|p_eagle|p_whale|bg_aurora|bg_galaxy|bg_rainbow|bg_palace|bg_fireworks)$/.test(i.id));
-    assert.equal(pricey.length, 5, slot);
-    for (const i of pricey) assert.ok(slot === 'bg' ? i.css : i.icon, i.id);
+  for (const slot of ['base', 'hat', 'glasses', 'weapon', 'pet', 'bg']) {
+    const pr = CATALOG.filter(i => i.slot === slot && i.price > 0).map(i => i.price).sort((a, b) => a - b);
+    assert.equal(pr[0], 50, slot); assert.equal(pr.at(-1), 300, slot);
+    pr.slice(1).forEach((v, k) => assert.ok(v - pr[k] <= 50, `${slot} ${pr[k]}→${v}`));
+    for (const i of CATALOG.filter(x => x.slot === slot)) assert.ok(slot === 'bg' ? i.css : i.icon, i.id);
   }
+  assert.deepEqual(CATALOG.filter(i => i.slot === 'base' && i.price === 0).map(i => i.id), ['b_kid', 'b_girl', 'b_boy'], '기본 캐릭터는 3종만 무료');
+  assert.deepEqual(CATALOG.filter(i => i.price === 0 && i.slot !== 'base').map(i => i.id), ['bg_night'], '기본 배경만 무료');
+  assert.ok(CATALOG.filter(i => i.slot === 'base').length >= 20, '캐릭터 수');
   assert.equal(new Set(CATALOG.map(i => i.id)).size, CATALOG.length, '아이디가 겹치지 않음');
+});
+
+test('처음 들어온 학생과 가상 친구는 무료 캐릭터 3종 중 하나', () => {
+  const s = setup(6);
+  s.eng.handle(s.teacher, { t: 'tbots', n: 3 });
+  for (const p of s.room.players.values()) assert.ok(['b_kid', 'b_girl', 'b_boy'].includes(p.equip.base), p.name + ' ' + p.equip.base);
+  const k = s.kids[3];
+  s.eng.handle(k, { t: 'equip', slot: 'base', id: 'b_bear' });
+  assert.notEqual(s.P(k).equip.base, 'b_bear', '사지 않은 캐릭터는 못 입음');
 });
 
 function bankRoom(list, joinFirst) {
@@ -1171,12 +1187,12 @@ test('별 누적: 같은 번호·이름(띄어쓰기 무시)으로 들어오면 
   const b = bankRoom([{ num: 3, name: '김 민준', points: 250, owned: ['h_cap', 'w_light', '없는물건'], equip: { base: 'b_cat', hat: 'h_cap', weapon: 'w_light', pet: 'p_dog' } }]);
   const p = b.join(3, '김민준');
   assert.equal(p.points, 250);
-  assert.deepEqual(p.owned, ['h_cap', 'w_light'], '없는 물건은 버림');
+  assert.deepEqual(p.owned, ['h_cap', 'w_light', 'b_cat'], '없는 물건은 버리고, 예전에 무료였던 캐릭터는 쓰던 그대로 가짐');
   assert.equal(p.equip.hat, 'h_cap'); assert.equal(p.equip.weapon, 'w_light'); assert.equal(p.equip.base, 'b_cat');
   assert.equal(p.equip.pet, undefined, '사지 않은 펫은 끼지 않음');
   const q = b.join(4, '김민준'); assert.equal(q.points, 0, '번호가 다르면 다른 학생');
   const tp = b.t.last('tstate').players.find(x => x.num === 3);
-  assert.deepEqual(tp.owned, ['h_cap', 'w_light']); assert.equal(tp.equip.weapon, 'w_light');
+  assert.deepEqual(tp.owned, ['h_cap', 'w_light', 'b_cat']); assert.equal(tp.equip.weapon, 'w_light');
 });
 
 test('별 누적: 저장 목록이 늦게 와도 먼저 들어온 학생이 번 별에 더해짐', () => {

@@ -25,8 +25,8 @@
 
   const SMALL = 40;   // 한 문제 맞힐 때
   const TEAM = 200;   // 합동 공격 (마지막 일격)
-  // 무기 데미지 (v0.24.1): 무기 없음 40, 50별 미만 50, 50~99별 60, 100~199별 70, 200별 이상 80. 몬스터 체력도 모둠원 무기에 맞춰 늘어나요
-  const WEAPON_DMG = [[200, 80], [100, 70], [50, 60], [1, 50]];
+  // 무기 데미지 (v0.25): 무기 없음 40, 50~100별 50, 110~150별 60, 160~220별 70, 230~300별 80. 몬스터 체력도 모둠원 무기에 맞춰 늘어나요
+  const WEAPON_DMG = [[230, 80], [160, 70], [110, 60], [1, 50]];
   const MAX_GIFTS = 1; // 한 문제에 쓸 수 있는 친구 힌트 수 (3종류 중 하나만 골라 씀)
   const BOX_MAX = 10; // 모둠 힌트 상자 크기 (가득 차면 추가 문제는 포인트만)
   const KIND_MAX = { elim: 2, concept: 4, step: 4 }; // 스테이지마다 종류별로 만들 수 있는 수 (합 10)
@@ -49,44 +49,50 @@
   // ───── 상점 (포인트로 캐릭터 꾸미기) ─────
   const CATALOG = [
     { id: 'b_kid', slot: 'base', name: '꼬마 모험가', price: 0, icon: '🧒' }, { id: 'b_girl', slot: 'base', name: '씩씩한 소녀', price: 0, icon: '👧' },
-    { id: 'b_boy', slot: 'base', name: '용감한 소년', price: 0, icon: '👦' }, { id: 'b_bear', slot: 'base', name: '곰돌이', price: 0, icon: '🐻' },
-    { id: 'b_rabbit', slot: 'base', name: '토끼', price: 0, icon: '🐰' }, { id: 'b_panda', slot: 'base', name: '판다', price: 0, icon: '🐼' },
-    { id: 'h_cap', slot: 'hat', name: '야구 모자', price: 20, icon: '🧢' }, { id: 'h_helmet', slot: 'hat', name: '탐험 헬멧', price: 30, icon: '⛑️' },
-    { id: 'h_grad', slot: 'hat', name: '박사 모자', price: 40, icon: '🎓' }, { id: 'h_top', slot: 'hat', name: '신사 모자', price: 60, icon: '🎩' }, { id: 'h_crown', slot: 'hat', name: '황금 왕관', price: 120, icon: '👑' },
-    { id: 'g_read', slot: 'glasses', name: '동그란 안경', price: 20, icon: '👓' }, { id: 'g_sun', slot: 'glasses', name: '멋쟁이 선글라스', price: 35, icon: '🕶️' }, { id: 'g_goggle', slot: 'glasses', name: '탐험 고글', price: 50, icon: '🥽' },
-    { id: 'g_heart', slot: 'glasses', name: '하트 선글라스', price: 45, icon: '💗' }, { id: 'g_star', slot: 'glasses', name: '반짝 별 안경', price: 55, icon: '⭐' }, { id: 'g_3d', slot: 'glasses', name: '3D 안경', price: 40, icon: '🔴' },
-    { id: 'g_rainbow', slot: 'glasses', name: '무지개 안경', price: 65, icon: '🌈' }, { id: 'g_party', slot: 'glasses', name: '파티 고양이 안경', price: 75, icon: '🎉' },
-    { id: 'w_book', slot: 'weapon', name: '마법 책', price: 25, icon: '📖' }, { id: 'w_wand', slot: 'weapon', name: '별 지팡이', price: 60, icon: '🪄' },
-    { id: 'w_sword', slot: 'weapon', name: '용사의 검', price: 70, icon: '🗡️' }, { id: 'w_shield', slot: 'weapon', name: '튼튼한 방패', price: 70, icon: '🛡️' },
-    { id: 'p_chick', slot: 'pet', name: '병아리', price: 40, icon: '🐥' }, { id: 'p_dog', slot: 'pet', name: '강아지', price: 50, icon: '🐶' },
-    { id: 'p_fox', slot: 'pet', name: '여우', price: 70, icon: '🦊' }, { id: 'p_unicorn', slot: 'pet', name: '유니콘', price: 130, icon: '🦄' }, { id: 'p_dragon', slot: 'pet', name: '아기 용', price: 180, icon: '🐉' },
-    { id: 'bg_night', slot: 'bg', name: '밤하늘', price: 0, css: 'linear-gradient(#2b1f5e,#170f36)' }, { id: 'bg_sky', slot: 'bg', name: '구름 위', price: 30, css: 'linear-gradient(#6ec6ff,#e6f6ff)' },
-    { id: 'bg_grass', slot: 'bg', name: '푸른 들판', price: 30, css: 'linear-gradient(#bfe9ff 0 55%,#8fd36b 55%)' }, { id: 'bg_sea', slot: 'bg', name: '바닷속', price: 60, css: 'linear-gradient(#5ee0e0,#1b6fb5)' },
-    { id: 'bg_space', slot: 'bg', name: '우주', price: 90, css: 'radial-gradient(circle at 30% 30%,#7a4bd6,#0b0b2b 70%)' },
+    { id: 'b_boy', slot: 'base', name: '용감한 소년', price: 0, icon: '👦' }, { id: 'b_bear', slot: 'base', name: '곰돌이', price: 80, icon: '🐻' },
+    { id: 'b_rabbit', slot: 'base', name: '토끼', price: 70, icon: '🐰' }, { id: 'b_panda', slot: 'base', name: '판다', price: 100, icon: '🐼' },
+    { id: 'h_cap', slot: 'hat', name: '야구 모자', price: 50, icon: '🧢' }, { id: 'h_helmet', slot: 'hat', name: '탐험 헬멧', price: 90, icon: '⛑️' },
+    { id: 'h_grad', slot: 'hat', name: '박사 모자', price: 130, icon: '🎓' }, { id: 'h_top', slot: 'hat', name: '신사 모자', price: 180, icon: '🎩' }, { id: 'h_crown', slot: 'hat', name: '황금 왕관', price: 200, icon: '👑' },
+    { id: 'g_read', slot: 'glasses', name: '동그란 안경', price: 50, icon: '👓' }, { id: 'g_sun', slot: 'glasses', name: '멋쟁이 선글라스', price: 70, icon: '🕶️' }, { id: 'g_goggle', slot: 'glasses', name: '탐험 고글', price: 130, icon: '🥽' },
+    { id: 'g_heart', slot: 'glasses', name: '하트 선글라스', price: 110, icon: '💗' }, { id: 'g_star', slot: 'glasses', name: '반짝 별 안경', price: 150, icon: '⭐' }, { id: 'g_3d', slot: 'glasses', name: '3D 안경', price: 90, icon: '🔴' },
+    { id: 'g_rainbow', slot: 'glasses', name: '무지개 안경', price: 180, icon: '🌈' }, { id: 'g_party', slot: 'glasses', name: '파티 고양이 안경', price: 200, icon: '🎉' },
+    { id: 'w_book', slot: 'weapon', name: '마법 책', price: 50, icon: '📖' }, { id: 'w_wand', slot: 'weapon', name: '별 지팡이', price: 90, icon: '🪄' },
+    { id: 'w_sword', slot: 'weapon', name: '용사의 검', price: 130, icon: '🗡️' }, { id: 'w_shield', slot: 'weapon', name: '튼튼한 방패', price: 150, icon: '🛡️' },
+    { id: 'p_chick', slot: 'pet', name: '병아리', price: 50, icon: '🐥' }, { id: 'p_dog', slot: 'pet', name: '강아지', price: 100, icon: '🐶' },
+    { id: 'p_fox', slot: 'pet', name: '여우', price: 160, icon: '🦊' }, { id: 'p_unicorn', slot: 'pet', name: '유니콘', price: 180, icon: '🦄' }, { id: 'p_dragon', slot: 'pet', name: '아기 용', price: 190, icon: '🐉' },
+    { id: 'bg_night', slot: 'bg', name: '밤하늘', price: 0, css: 'linear-gradient(#2b1f5e,#170f36)' }, { id: 'bg_sky', slot: 'bg', name: '구름 위', price: 50, css: 'linear-gradient(#6ec6ff,#e6f6ff)' },
+    { id: 'bg_grass', slot: 'bg', name: '푸른 들판', price: 70, css: 'linear-gradient(#bfe9ff 0 55%,#8fd36b 55%)' }, { id: 'bg_sea', slot: 'bg', name: '바닷속', price: 130, css: 'linear-gradient(#5ee0e0,#1b6fb5)' },
+    { id: 'bg_space', slot: 'bg', name: '우주', price: 180, css: 'radial-gradient(circle at 30% 30%,#7a4bd6,#0b0b2b 70%)' },
     // v0.10 추가 아이템
-    { id: 'b_cat', slot: 'base', name: '고양이', price: 0, icon: '🐱' }, { id: 'b_tiger', slot: 'base', name: '호랑이', price: 30, icon: '🐯' }, { id: 'b_robot', slot: 'base', name: '로봇', price: 80, icon: '🤖' },
-    { id: 'h_ribbon', slot: 'hat', name: '리본', price: 20, icon: '🎀' }, { id: 'h_straw', slot: 'hat', name: '꽃 밀짚모자', price: 35, icon: '👒' }, { id: 'h_flower', slot: 'hat', name: '꽃 장식', price: 45, icon: '🌸' },
-    { id: 'w_bow', slot: 'weapon', name: '활', price: 50, icon: '🏹' }, { id: 'w_orb', slot: 'weapon', name: '수정 구슬', price: 80, icon: '🔮' }, { id: 'w_hammer', slot: 'weapon', name: '망치', price: 60, icon: '🔨' }, { id: 'w_trident', slot: 'weapon', name: '삼지창', price: 110, icon: '🔱' },
-    { id: 'p_cat', slot: 'pet', name: '아기 고양이', price: 45, icon: '🐈' }, { id: 'p_turtle', slot: 'pet', name: '거북이', price: 45, icon: '🐢' }, { id: 'p_owl', slot: 'pet', name: '부엉이', price: 65, icon: '🦉' }, { id: 'p_penguin', slot: 'pet', name: '펭귄', price: 65, icon: '🐧' }, { id: 'p_phoenix', slot: 'pet', name: '불새', price: 200, icon: '🐦‍🔥' },
-    { id: 'bg_sunset', slot: 'bg', name: '노을', price: 40, css: 'linear-gradient(#ff9a5a,#ff5e7e 60%,#6a3fb5)' }, { id: 'bg_forest', slot: 'bg', name: '숲속', price: 45, css: 'linear-gradient(#a8e6a3,#2f7d4a)' },
-    { id: 'bg_cherry', slot: 'bg', name: '벚꽃', price: 60, css: 'radial-gradient(circle at 30% 30%,#ffe3ef,#ffb3cf 70%)' }, { id: 'bg_snow', slot: 'bg', name: '눈밭', price: 60, css: 'linear-gradient(#dff1ff,#ffffff)' }, { id: 'bg_lava', slot: 'bg', name: '용암 동굴', price: 120, css: 'radial-gradient(circle at 50% 100%,#ff7a18,#5a0f0f 70%)' },
+    { id: 'b_cat', slot: 'base', name: '고양이', price: 50, icon: '🐱' }, { id: 'b_tiger', slot: 'base', name: '호랑이', price: 180, icon: '🐯' }, { id: 'b_robot', slot: 'base', name: '로봇', price: 240, icon: '🤖' },
+    { id: 'h_ribbon', slot: 'hat', name: '리본', price: 70, icon: '🎀' }, { id: 'h_straw', slot: 'hat', name: '꽃 밀짚모자', price: 110, icon: '👒' }, { id: 'h_flower', slot: 'hat', name: '꽃 장식', price: 150, icon: '🌸' },
+    { id: 'w_bow', slot: 'weapon', name: '활', price: 70, icon: '🏹' }, { id: 'w_orb', slot: 'weapon', name: '수정 구슬', price: 180, icon: '🔮' }, { id: 'w_hammer', slot: 'weapon', name: '망치', price: 110, icon: '🔨' }, { id: 'w_trident', slot: 'weapon', name: '삼지창', price: 200, icon: '🔱' },
+    { id: 'p_cat', slot: 'pet', name: '아기 고양이', price: 70, icon: '🐈' }, { id: 'p_turtle', slot: 'pet', name: '거북이', price: 90, icon: '🐢' }, { id: 'p_owl', slot: 'pet', name: '부엉이', price: 120, icon: '🦉' }, { id: 'p_penguin', slot: 'pet', name: '펭귄', price: 140, icon: '🐧' }, { id: 'p_phoenix', slot: 'pet', name: '불새', price: 210, icon: '🐦‍🔥' },
+    { id: 'bg_sunset', slot: 'bg', name: '노을', price: 90, css: 'linear-gradient(#ff9a5a,#ff5e7e 60%,#6a3fb5)' }, { id: 'bg_forest', slot: 'bg', name: '숲속', price: 110, css: 'linear-gradient(#a8e6a3,#2f7d4a)' },
+    { id: 'bg_cherry', slot: 'bg', name: '벚꽃', price: 150, css: 'radial-gradient(circle at 30% 30%,#ffe3ef,#ffb3cf 70%)' }, { id: 'bg_snow', slot: 'bg', name: '눈밭', price: 170, css: 'linear-gradient(#dff1ff,#ffffff)' }, { id: 'bg_lava', slot: 'bg', name: '용암 동굴', price: 200, css: 'radial-gradient(circle at 50% 100%,#ff7a18,#5a0f0f 70%)' },
     // v0.24 비싼 물건 (별을 여러 날 모아서 사요)
-    { id: 'h_knight', slot: 'hat', name: '기사 투구', price: 200, icon: '🪖' }, { id: 'h_mush', slot: 'hat', name: '버섯 모자', price: 250, icon: '🍄' }, { id: 'h_pumpkin', slot: 'hat', name: '호박 모자', price: 300, icon: '🎃' },
-    { id: 'h_fire', slot: 'hat', name: '불꽃 머리', price: 400, icon: '🔥' }, { id: 'h_gem', slot: 'hat', name: '다이아 왕관', price: 500, icon: '💎' },
-    { id: 'g_swirl', slot: 'glasses', name: '빙글빙글 안경', price: 200, icon: '🌀' }, { id: 'g_ice', slot: 'glasses', name: '얼음 안경', price: 250, icon: '❄️' }, { id: 'g_bolt', slot: 'glasses', name: '번개 고글', price: 300, icon: '⚡' },
-    { id: 'g_moon', slot: 'glasses', name: '달빛 안경', price: 400, icon: '🌙' }, { id: 'g_crystal', slot: 'glasses', name: '수정 안경', price: 500, icon: '💠' },
-    { id: 'w_twin', slot: 'weapon', name: '쌍검', price: 200, icon: '⚔️' }, { id: 'w_boomer', slot: 'weapon', name: '부메랑', price: 250, icon: '🪃' }, { id: 'w_axe', slot: 'weapon', name: '전투 도끼', price: 300, icon: '🪓' },
-    { id: 'w_comet', slot: 'weapon', name: '유성 지팡이', price: 400, icon: '☄️' }, { id: 'w_light', slot: 'weapon', name: '빛의 마법', price: 500, icon: '✨' },
-    { id: 'p_lion', slot: 'pet', name: '아기 사자', price: 200, icon: '🦁' }, { id: 'p_dolphin', slot: 'pet', name: '돌고래', price: 250, icon: '🐬' }, { id: 'p_dino', slot: 'pet', name: '아기 공룡', price: 300, icon: '🦖' },
-    { id: 'p_eagle', slot: 'pet', name: '독수리', price: 400, icon: '🦅' }, { id: 'p_whale', slot: 'pet', name: '고래', price: 500, icon: '🐳' },
-    { id: 'bg_aurora', slot: 'bg', name: '오로라', price: 200, css: 'linear-gradient(160deg,#0b2545 10%,#1fbf8f 45%,#7b5cff 75%,#0b2545)' }, { id: 'bg_galaxy', slot: 'bg', name: '은하수', price: 250, css: 'radial-gradient(ellipse at 50% 50%,#f6d6ff 0 8%,#8a5cf6 28%,#1a1048 70%)' },
-    { id: 'bg_rainbow', slot: 'bg', name: '무지개', price: 300, css: 'linear-gradient(#ff6b6b,#ffb86b,#ffe66b,#7be07b,#6bc8ff,#9b7bff)' }, { id: 'bg_palace', slot: 'bg', name: '황금 궁전', price: 400, css: 'radial-gradient(circle at 50% 35%,#fff6c2,#ffd24a 45%,#b8860b)' },
-    { id: 'bg_fireworks', slot: 'bg', name: '불꽃놀이', price: 500, css: 'radial-gradient(circle at 25% 30%,#ff5ea8 0 6%,transparent 14%),radial-gradient(circle at 72% 40%,#ffd84a 0 6%,transparent 14%),radial-gradient(circle at 45% 75%,#5ee0ff 0 6%,transparent 14%),#14102e' },
+    { id: 'h_knight', slot: 'hat', name: '기사 투구', price: 220, icon: '🪖' }, { id: 'h_mush', slot: 'hat', name: '버섯 모자', price: 240, icon: '🍄' }, { id: 'h_pumpkin', slot: 'hat', name: '호박 모자', price: 260, icon: '🎃' },
+    { id: 'h_fire', slot: 'hat', name: '불꽃 머리', price: 280, icon: '🔥' }, { id: 'h_gem', slot: 'hat', name: '다이아 왕관', price: 300, icon: '💎' },
+    { id: 'g_swirl', slot: 'glasses', name: '빙글빙글 안경', price: 220, icon: '🌀' }, { id: 'g_ice', slot: 'glasses', name: '얼음 안경', price: 240, icon: '❄️' }, { id: 'g_bolt', slot: 'glasses', name: '번개 고글', price: 260, icon: '⚡' },
+    { id: 'g_moon', slot: 'glasses', name: '달빛 안경', price: 280, icon: '🌙' }, { id: 'g_crystal', slot: 'glasses', name: '수정 안경', price: 300, icon: '💠' },
+    { id: 'w_twin', slot: 'weapon', name: '쌍검', price: 220, icon: '⚔️' }, { id: 'w_boomer', slot: 'weapon', name: '부메랑', price: 240, icon: '🪃' }, { id: 'w_axe', slot: 'weapon', name: '전투 도끼', price: 260, icon: '🪓' },
+    { id: 'w_comet', slot: 'weapon', name: '유성 지팡이', price: 280, icon: '☄️' }, { id: 'w_light', slot: 'weapon', name: '빛의 마법', price: 300, icon: '✨' },
+    { id: 'p_lion', slot: 'pet', name: '아기 사자', price: 230, icon: '🦁' }, { id: 'p_dolphin', slot: 'pet', name: '돌고래', price: 250, icon: '🐬' }, { id: 'p_dino', slot: 'pet', name: '아기 공룡', price: 260, icon: '🦖' },
+    { id: 'p_eagle', slot: 'pet', name: '독수리', price: 280, icon: '🦅' }, { id: 'p_whale', slot: 'pet', name: '고래', price: 300, icon: '🐳' },
+    { id: 'bg_aurora', slot: 'bg', name: '오로라', price: 220, css: 'linear-gradient(160deg,#0b2545 10%,#1fbf8f 45%,#7b5cff 75%,#0b2545)' }, { id: 'bg_galaxy', slot: 'bg', name: '은하수', price: 240, css: 'radial-gradient(ellipse at 50% 50%,#f6d6ff 0 8%,#8a5cf6 28%,#1a1048 70%)' },
+    { id: 'bg_rainbow', slot: 'bg', name: '무지개', price: 260, css: 'linear-gradient(#ff6b6b,#ffb86b,#ffe66b,#7be07b,#6bc8ff,#9b7bff)' }, { id: 'bg_palace', slot: 'bg', name: '황금 궁전', price: 280, css: 'radial-gradient(circle at 50% 35%,#fff6c2,#ffd24a 45%,#b8860b)' },
+    { id: 'bg_fireworks', slot: 'bg', name: '불꽃놀이', price: 300, css: 'radial-gradient(circle at 25% 30%,#ff5ea8 0 6%,transparent 14%),radial-gradient(circle at 72% 40%,#ffd84a 0 6%,transparent 14%),radial-gradient(circle at 45% 75%,#5ee0ff 0 6%,transparent 14%),#14102e' },
+    // v0.25 캐릭터 추가 (꼬마 모험가·씩씩한 소녀·용감한 소년만 기본, 나머지는 별로 사요)
+    { id: 'b_frog', slot: 'base', name: '개구리', price: 110, icon: '🐸' }, { id: 'b_monkey', slot: 'base', name: '원숭이', price: 140, icon: '🐵' }, { id: 'b_koala', slot: 'base', name: '코알라', price: 160, icon: '🐨' },
+    { id: 'b_pig', slot: 'base', name: '아기 돼지', price: 130, icon: '🐷' }, { id: 'b_ninja', slot: 'base', name: '닌자', price: 190, icon: '🥷' }, { id: 'b_wizard', slot: 'base', name: '마법사', price: 220, icon: '🧙' },
+    { id: 'b_raccoon', slot: 'base', name: '너구리', price: 210, icon: '🦝' }, { id: 'b_wolf', slot: 'base', name: '늑대', price: 250, icon: '🐺' }, { id: 'b_alien', slot: 'base', name: '외계인', price: 270, icon: '👽' },
+    { id: 'b_ghost', slot: 'base', name: '꼬마 유령', price: 280, icon: '👻' }, { id: 'b_dragon', slot: 'base', name: '아기 드래곤', price: 300, icon: '🐲' },
   ];
+  for (const i of CATALOG) if (i.slot === 'weapon') i.dmg = (WEAPON_DMG.find(([min]) => i.price >= min) || [0, SMALL])[1]; // 상점에 데미지를 보여 주려고 함께 보냄
   const ITEM = Object.fromEntries(CATALOG.map(i => [i.id, i]));
-  const dmgOf = p => { const w = p && p.equip && ITEM[p.equip.weapon]; if (!w || w.slot !== 'weapon') return SMALL; return (WEAPON_DMG.find(([min]) => w.price >= min) || [0, SMALL])[1]; };
+  const dmgOf = p => { const w = p && p.equip && ITEM[p.equip.weapon]; return w && w.slot === 'weapon' ? w.dmg : SMALL; };
   const SLOTS = ['base', 'hat', 'glasses', 'weapon', 'pet', 'bg'];
-  const BASES = CATALOG.filter(i => i.slot === 'base').map(i => i.id);
+  const BASES = CATALOG.filter(i => i.slot === 'base' && i.price === 0).map(i => i.id); // 처음 캐릭터는 기본 3종 중에서 (번호 순서대로)
 
   // ───── 답 비교 (주관식) ─────
   const hasHangul = s => /[가-힣]/.test(s);
@@ -726,6 +732,7 @@
       if (!num || !name) return null;
       const owned = [...new Set(Array.isArray(e.owned) ? e.owned : [])].filter(id => ITEM[id] && ITEM[id].price > 0);
       const equip = defaultEquip(num), eq = e.equip && typeof e.equip === 'object' ? e.equip : {};
+      { const b = ITEM[eq.base]; if (b && b.slot === 'base' && b.price > 0 && owned.indexOf(b.id) < 0) owned.push(b.id); } // v0.25 전에는 무료였던 캐릭터: 쓰던 것은 그대로 가짐
       for (const sl of SLOTS) { const it = ITEM[eq[sl]]; if (it && it.slot === sl && (it.price === 0 || owned.indexOf(it.id) >= 0)) equip[sl] = it.id; }
       return { num, name, points: intIn(e.points, 0, 999999) || 0, owned, equip };
     }
