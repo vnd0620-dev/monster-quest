@@ -127,8 +127,15 @@
       else if (reportWaiting(st)) html = reportWaitView(st);
       else if (st.survey && !st.survey.done && !S.surveySent) html = surveyView(st);
       else html = endedView(st);
-      main.innerHTML = html;
-      if (focusId) { const el = main.querySelector('#' + focusId); if (el) { el.focus(); if (el.setSelectionRange && el.value) el.setSelectionRange(el.value.length, el.value.length); } }
+      // 같은 방 친구가 무언가 할 때마다 새 소식이 와요. 내 화면이 그대로면 다시 그리지 않고,
+      // 다시 그려도 같은 단계 안에서는 스크롤 위치를 지켜요 (아이패드에서 학습 리포트가 맨 위로 튀던 문제)
+      if (html !== S.lastHtml) {
+        const y = window.scrollY;
+        main.innerHTML = html; S.lastHtml = html;
+        if (S.lastDrawn === phase && y) window.scrollTo(0, y);
+        if (focusId) { const el = main.querySelector('#' + focusId); if (el) { el.focus({ preventScroll: true }); if (el.setSelectionRange && el.value) el.setSelectionRange(el.value.length, el.value.length); } }
+      }
+      S.lastDrawn = phase;
       afterRender(st);
       paintReadyBanner(st);
       if (phase === 'ended') watchReportEnd();
@@ -723,7 +730,7 @@
       render();
     });
 
-    if (S.pid) main.innerHTML = `<section class="s-card center"><h2>다시 연결하는 중<span class="dots"></span></h2></section>`;
+    if (S.pid) S.lastHtml = null, main.innerHTML = `<section class="s-card center"><h2>다시 연결하는 중<span class="dots"></span></h2></section>`;
     else render();
 
     return { refresh() { if (!S.st) render(); } };
