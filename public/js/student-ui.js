@@ -575,12 +575,13 @@
         <div class="shop-top">${avatar(me.equip, 84, me.num)}<div class="grow"><h2>🛒 포인트 상점</h2><p>내 포인트 <b class="gold-text">⭐ ${me.points}</b></p></div><button type="button" class="btn sm btn-ghost" data-act="shop-close">닫기 ✕</button></div>
         <p class="muted small">문제를 맞히고, 추가 문제를 풀고, 친구에게 힌트를 보내면 포인트가 쌓여요.</p>
         <div class="shop-tabs">${Object.keys(SLOT_NAME).map(k => `<button type="button" class="shop-tab ${S.shopTab === k ? 'on' : ''}" data-act="shop-tab" data-k="${k}">${SLOT_NAME[k]}</button>`).join('')}</div>
+        ${S.shopTab === 'weapon' ? '<p class="small shop-dmg-note">⚔️ 무기를 끼면 문제를 맞힐 때 데미지가 커져요. (무기 없음 40)</p>' : ''}
         <div class="items">${items.map(it => {
           const has = it.price === 0 || owned.has(it.id), worn = me.equip[it.slot] === it.id;
           let btn;
           if (has) btn = worn ? (it.slot === 'base' || it.slot === 'bg' ? '<button type="button" class="btn sm btn-gold" disabled>착용 중</button>' : `<button type="button" class="btn sm btn-ghost" data-act="unequip" data-slot="${it.slot}">벗기</button>`) : `<button type="button" class="btn sm btn-gold" data-act="equip" data-slot="${it.slot}" data-id="${it.id}">입기</button>`;
           else btn = `<button type="button" class="btn sm" data-act="buy" data-id="${it.id}" ${me.points < it.price ? 'disabled' : ''}>⭐ ${it.price} 사기</button>`;
-          return `<div class="item ${worn ? 'worn' : ''}">${it.css ? `<span class="ic" style="background:${it.css}"></span>` : `<span class="ic">${itemIcon(it)}</span>`}<span class="nm">${esc(it.name)}</span>${btn}</div>`;
+          return `<div class="item ${worn ? 'worn' : ''}">${it.css ? `<span class="ic" style="background:${it.css}"></span>` : `<span class="ic">${itemIcon(it)}</span>`}<span class="nm">${esc(it.name)}</span>${it.slot === 'weapon' ? `<span class="dmg-tag">⚔️ 데미지 ${weaponDmg(it)}</span>` : ''}${btn}</div>`;
         }).join('')}</div></div>`;
       ov.hidden = false;
     }
@@ -616,6 +617,7 @@
 
     // 무기·펫 연출 (v0.24): 능력치는 없고 보이는 효과만 달라요. 비싼 무기일수록 숫자와 효과가 커요.
     const itemOf = id => (id && (S.catalog || []).find(i => i.id === id)) || null;
+    const weaponDmg = it => (!it ? 40 : it.price >= 200 ? 80 : it.price >= 100 ? 70 : it.price >= 50 ? 60 : 50); // 서버(engine.js WEAPON_DMG)와 같은 표
     const tierOf = it => (!it ? 0 : it.price >= 200 ? 4 : it.price >= 100 ? 3 : it.price >= 50 ? 2 : 1);
     const TIER_WORD = ['', '', '', '💥 강한 공격!', '🌟 필살기!'];
     function addEl(wrap, cls, html, ms, delay) {

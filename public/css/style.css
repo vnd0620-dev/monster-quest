@@ -872,3 +872,6 @@ h1, h2, h3, h4 { font-family: var(--display); font-weight: 400; text-wrap: balan
 @media (max-width: 560px) { .hearts-set { grid-template-columns: 1fr; } }
 .t-bank .row { gap: 8px; }
 .t-bank .bank-reset { color: #c0283f; }
+
+.dmg-tag { font-size: 12px; font-weight: 700; color: #ffb02e; }
+.shop-dmg-note { margin: 0; color: #ffd27a; }

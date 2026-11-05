@@ -1121,13 +1121,26 @@ test('추가 문제(주관식)를 틀려도 체력은 그대로', () => {
   assert.equal(p.hp, hp);
 });
 
-test('무기·펫은 연출용 정보만 보내고 데미지는 같음', () => {
-  const s = setup(2); toPlaying(s, true);
-  const [a, b] = s.kids, p = s.P(a);
-  p.owned.push('w_light', 'p_whale'); p.equip.weapon = 'w_light'; p.equip.pet = 'p_whale';
+test('무기 데미지: 무기 없음 40, 값에 따라 50·60·70·80', () => {
+  const { dmgOf } = require('../shared/engine.js');
+  const eq = w => ({ equip: { weapon: w } });
+  assert.equal(dmgOf(eq(undefined)), 40); assert.equal(dmgOf(eq('w_book')), 50); assert.equal(dmgOf(eq('w_bow')), 60);
+  assert.equal(dmgOf(eq('w_trident')), 70); assert.equal(dmgOf(eq('w_light')), 80); assert.equal(dmgOf(eq('h_cap')), 40, '무기 칸이 아닌 물건은 무시');
+});
+
+test('무기를 끼면 맞힐 때 데미지가 커지고, 몬스터 체력도 모둠원 무기에 맞춰 늘어나 모두 맞히면 딱 합동 공격만 남음', () => {
+  const s = setup(2, { stages: 2 });
+  for (const k of s.kids) { s.P(k).owned.push('w_light'); }
+  s.P(s.kids[0]).equip.weapon = 'w_light'; s.P(s.kids[0]).equip.pet = 'p_whale'; // 1번만 80, 2번은 40
+  toPlaying(s, true);
+  const [a, b] = s.kids, g = s.room.groups[0];
+  assert.equal(g.hpMax, (80 + 40) * 3 + TEAM);
   right(s, a);
   const f = b.inbox.filter(m => m.t === 'fx' && m.kind === 'hit').at(-1);
-  assert.equal(f.weapon, 'w_light'); assert.equal(f.pet, 'p_whale'); assert.equal(f.dmg, SMALL);
+  assert.equal(f.weapon, 'w_light'); assert.equal(f.pet, 'p_whale'); assert.equal(f.dmg, 80);
+  assert.equal(g.hp, g.hpMax - 80);
+  finishMine(s, b); right(s, a); right(s, a);
+  assert.equal(g.hp, TEAM, '모두 맞히면 합동 공격 몫만 남음');
 });
 
 // ───── v0.24 별 누적 ─────

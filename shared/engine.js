@@ -25,6 +25,8 @@
 
   const SMALL = 40;   // 한 문제 맞힐 때
   const TEAM = 200;   // 합동 공격 (마지막 일격)
+  // 무기 데미지 (v0.24.1): 무기 없음 40, 50별 미만 50, 50~99별 60, 100~199별 70, 200별 이상 80. 몬스터 체력도 모둠원 무기에 맞춰 늘어나요
+  const WEAPON_DMG = [[200, 80], [100, 70], [50, 60], [1, 50]];
   const MAX_GIFTS = 1; // 한 문제에 쓸 수 있는 친구 힌트 수 (3종류 중 하나만 골라 씀)
   const BOX_MAX = 10; // 모둠 힌트 상자 크기 (가득 차면 추가 문제는 포인트만)
   const KIND_MAX = { elim: 2, concept: 4, step: 4 }; // 스테이지마다 종류별로 만들 수 있는 수 (합 10)
@@ -82,6 +84,7 @@
     { id: 'bg_fireworks', slot: 'bg', name: '불꽃놀이', price: 500, css: 'radial-gradient(circle at 25% 30%,#ff5ea8 0 6%,transparent 14%),radial-gradient(circle at 72% 40%,#ffd84a 0 6%,transparent 14%),radial-gradient(circle at 45% 75%,#5ee0ff 0 6%,transparent 14%),#14102e' },
   ];
   const ITEM = Object.fromEntries(CATALOG.map(i => [i.id, i]));
+  const dmgOf = p => { const w = p && p.equip && ITEM[p.equip.weapon]; if (!w || w.slot !== 'weapon') return SMALL; return (WEAPON_DMG.find(([min]) => w.price >= min) || [0, SMALL])[1]; };
   const SLOTS = ['base', 'hat', 'glasses', 'weapon', 'pet', 'bg'];
   const BASES = CATALOG.filter(i => i.slot === 'base').map(i => i.id);
 
@@ -312,8 +315,9 @@
       return g;
     }
     function setStageHp(room, g) {
-      const on = Math.max(1, membersOf(room, g).filter(m => m.online).length);
-      g.hpMax = SMALL * room.settings.perStage * on + TEAM; g.hp = g.hpMax;
+      const on = membersOf(room, g).filter(m => m.online);
+      const sum = on.length ? on.reduce((a, m) => a + dmgOf(m), 0) : SMALL;
+      g.hpMax = sum * room.settings.perStage + TEAM; g.hp = g.hpMax; // 모둠원이 내 문제를 다 맞히면 딱 합동 공격(TEAM)만 남음
     }
     // 모둠 수 고르기: 모든 모둠이 (설정 인원 ± 1)명이 되게. 그런 방법이 없으면(학생 수가 너무 적을 때) 설정 인원에 가장 가깝게.
     function groupCount(n, size) {
@@ -630,7 +634,8 @@
     function onCorrect(room, p, g, c) {
       c.solved = true; p.stats.ok++; p.points += POINTS.correct;
       p.records.push({ kind: 'q', qid: c.qid, diff: c.diff, stage: g.stage, area: c.area, areaName: c.areaName, text: c.text, answer: c.answerText, wrong: c.tried.length, picks: c.tried.map(i => c.choices[i]), mis: c.tried.map(i => c.mis[i]).filter(Boolean), gifts: c.gifts.length });
-      g.hp = g.hp > TEAM ? Math.max(TEAM, g.hp - SMALL) : g.hp;
+      const dmg = dmgOf(p);
+      g.hp = g.hp > TEAM ? Math.max(TEAM, g.hp - dmg) : g.hp;
       p.qi++; p.lastArea = c.area;
       for (const e of c.glog || []) { e.solved = true; e.wrongAfter = c.tried.length - e.triedBefore; e.solvedSec = Math.round((now() - e.at) / 1000); }
       if (p.qi >= p.queue.length) {
@@ -638,7 +643,7 @@
         // 이 학생이 마지막이라 합동 공격이 열리면 새 추가 문제는 내지 않음 (지난 스테이지에서 풀던 문제는 이어서)
         if (!keepTwin(p)) p.twin = isReady(room, g) ? null : { state: 'choose' };
       } else showCurrent(room, p);
-      toGroup(room, g, { t: 'fx', kind: 'hit', by: p.name, pid: p.pid, dmg: SMALL, weapon: p.equip.weapon || null, pet: p.equip.pet || null }); // 무기·펫은 연출만 (데미지는 같음)
+      toGroup(room, g, { t: 'fx', kind: 'hit', by: p.name, pid: p.pid, dmg, weapon: p.equip.weapon || null, pet: p.equip.pet || null }); // 무기에 따라 데미지가 달라요 (펫은 연출만)
     }
     function giftText(room, kind, c) {
       if (kind === 'elim') {
@@ -1136,5 +1141,5 @@
     return { handle, disconnect, sweep, botTick, rooms, sheetResult };
   }
 
-  return { numVal, fmtOf, createEngine, DEFAULTS, SMALL, TEAM, CHAT, GIFTS, CATALOG, MAX_GIFTS, BOX_MAX, KIND_MAX, UNLOCK_BY, POINTS, matches, chosung };
+  return { numVal, fmtOf, createEngine, DEFAULTS, SMALL, TEAM, WEAPON_DMG, dmgOf, CHAT, GIFTS, CATALOG, MAX_GIFTS, BOX_MAX, KIND_MAX, UNLOCK_BY, POINTS, matches, chosung };
 });
