@@ -732,7 +732,6 @@
       if (!num || !name) return null;
       const owned = [...new Set(Array.isArray(e.owned) ? e.owned : [])].filter(id => ITEM[id] && ITEM[id].price > 0);
       const equip = defaultEquip(num), eq = e.equip && typeof e.equip === 'object' ? e.equip : {};
-      { const b = ITEM[eq.base]; if (b && b.slot === 'base' && b.price > 0 && owned.indexOf(b.id) < 0) owned.push(b.id); } // v0.25 전에는 무료였던 캐릭터: 쓰던 것은 그대로 가짐
       for (const sl of SLOTS) { const it = ITEM[eq[sl]]; if (it && it.slot === sl && (it.price === 0 || owned.indexOf(it.id) >= 0)) equip[sl] = it.id; }
       return { num, name, points: intIn(e.points, 0, 999999) || 0, owned, equip };
     }

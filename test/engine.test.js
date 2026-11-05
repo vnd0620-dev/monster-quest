@@ -1187,12 +1187,12 @@ test('별 누적: 같은 번호·이름(띄어쓰기 무시)으로 들어오면 
   const b = bankRoom([{ num: 3, name: '김 민준', points: 250, owned: ['h_cap', 'w_light', '없는물건'], equip: { base: 'b_cat', hat: 'h_cap', weapon: 'w_light', pet: 'p_dog' } }]);
   const p = b.join(3, '김민준');
   assert.equal(p.points, 250);
-  assert.deepEqual(p.owned, ['h_cap', 'w_light', 'b_cat'], '없는 물건은 버리고, 예전에 무료였던 캐릭터는 쓰던 그대로 가짐');
-  assert.equal(p.equip.hat, 'h_cap'); assert.equal(p.equip.weapon, 'w_light'); assert.equal(p.equip.base, 'b_cat');
+  assert.deepEqual(p.owned, ['h_cap', 'w_light'], '없는 물건은 버림');
+  assert.equal(p.equip.hat, 'h_cap'); assert.equal(p.equip.weapon, 'w_light'); assert.equal(p.equip.base, 'b_boy', '사지 않은 캐릭터(예전 무료 고양이)는 기본 3종으로 되돌림');
   assert.equal(p.equip.pet, undefined, '사지 않은 펫은 끼지 않음');
   const q = b.join(4, '김민준'); assert.equal(q.points, 0, '번호가 다르면 다른 학생');
   const tp = b.t.last('tstate').players.find(x => x.num === 3);
-  assert.deepEqual(tp.owned, ['h_cap', 'w_light', 'b_cat']); assert.equal(tp.equip.weapon, 'w_light');
+  assert.deepEqual(tp.owned, ['h_cap', 'w_light']); assert.equal(tp.equip.weapon, 'w_light');
 });
 
 test('별 누적: 저장 목록이 늦게 와도 먼저 들어온 학생이 번 별에 더해짐', () => {
