@@ -330,7 +330,8 @@ test('리포트·시트에 힌트 순서가 들어감', () => {
   const R = s.teacher.last('tresearch');
   assert.equal(R.meta.hintOrder, '친구 힌트 먼저');
   const SH = require('../shared/sheet.js'); const p = SH.build(R);
-  assert.equal(p.tables[0].header.at(-1), '힌트 순서'); assert.equal(p.tables[0].rows[0].at(-1), '친구 힌트 먼저');
+  assert.equal(p.tables[0].header.at(-2), '힌트 순서'); assert.equal(p.tables[0].rows[0].at(-2), '친구 힌트 먼저');
+  assert.equal(p.tables[0].header.at(-1), '체력 규칙'); assert.equal(p.tables[0].rows[0].at(-1), '켜짐');
 });
 
 test('귀한 힌트: 1번 틀린 뒤 보기 지우기를 쓰면 오답 하나가 지워지고, 기록에 쓸 때 틀린 횟수가 남는다', () => {
@@ -1049,4 +1050,152 @@ test('새 수업 만들기(tleave) 뒤에는 지난 방 소식이 선생님 화�
   assert.equal(s.room.tconn, null);
   s.eng.handle(s.teacher, { t: 'tcreate', settings: {} }); // 같은 연결로 새 방
   assert.notEqual(s.teacher.last('troom').code, s.code);
+});
+
+// ───── v0.24 체력 ─────
+test('체력: 틀리면 1칸 줄고 맞히면 1칸 참 (최대 5칸)', () => {
+  const s = setup(2); toPlaying(s, true);
+  const [a] = s.kids, p = s.P(a);
+  assert.equal(p.hp, 5); assert.equal(a.last('state').hearts, true); assert.equal(a.last('state').me.hp, 5);
+  wrong(s, a); assert.equal(p.hp, 4); assert.equal(a.last('result').hp, 4);
+  wrong(s, a); assert.equal(p.hp, 3);
+  right(s, a); assert.equal(p.hp, 4);
+  right(s, a); right(s, a); assert.equal(p.hp, 5, '5칸보다 많아지지 않음');
+});
+
+test('체력 0 → 기절: 5초 동안 답을 못 내고, 지나면 ❤️ 1칸으로 일어남', () => {
+  const s = setup(2); toPlaying(s, true);
+  const [a] = s.kids, p = s.P(a);
+  p.hp = 1;
+  wrong(s, a);
+  assert.equal(p.hp, 0); assert.ok(a.last('result').faint);
+  const st = a.last('state'); assert.ok(st.play.faint && st.play.faint.left === 5000);
+  const c = cur(s, a), before = c.tried.length;
+  s.eng.handle(a, { t: 'answer', qid: c.id, choice: c.answer });
+  assert.equal(p.stats.ok, 0, '기절 중에는 정답도 받지 않음'); assert.equal(c.tried.length, before);
+  assert.match(a.last('toast').msg, /기절/);
+  s.flush(); // 5초 뒤
+  assert.equal(p.hp, 1); assert.ok(!a.last('state').play.faint);
+  right(s, a); assert.equal(p.stats.ok, 1);
+});
+
+test('기절 중 친구 힌트를 쓰면 바로 일어나고 ❤️ 2칸, 늦게 온 타이머는 무시', () => {
+  const s = setup(2); toPlaying(s, true);
+  const [a, b] = s.kids, pa = s.P(a);
+  s.room.groups[0].box.push({ id: 'c1', kind: 'concept', from: '학생2', fromPid: s.P(b).pid });
+  pa.hp = 1; wrong(s, a);
+  assert.ok(a.last('state').play.faint);
+  s.eng.handle(a, { t: 'take', kind: 'concept' });
+  assert.equal(pa.hp, 2); assert.ok(!a.last('state').play.faint);
+  assert.match(a.last('toast').msg, /바로 일어났어요/);
+  wrong(s, a); assert.equal(pa.hp, 1);
+  s.flush(); // 앞의 기절 타이머가 나중에 와도 체력을 바꾸지 않음
+  assert.equal(pa.hp, 1);
+});
+
+test('체력 끄기: 틀려도 체력이 줄지 않고 기절하지 않음, 리포트에 꺼짐', () => {
+  const s = setup(2, { hearts: false }); toPlaying(s, true);
+  const [a] = s.kids, p = s.P(a);
+  for (let i = 0; i < 3; i++) wrong(s, a);
+  assert.equal(p.hp, 5); assert.ok(!a.last('state').play.faint); assert.equal(a.last('state').hearts, false);
+  s.eng.handle(s.teacher, { t: 'tend' }); s.eng.handle(s.teacher, { t: 'tresearch' });
+  assert.equal(s.teacher.last('tresearch').meta.heartsRule, '꺼짐');
+});
+
+test('체력 설정은 대기실에서 켜고 끌 수 있고, 잘못된 값은 무시', () => {
+  const s = setup(1);
+  assert.equal(s.room.settings.hearts, true, '처음에는 켜짐');
+  s.eng.handle(s.teacher, { t: 'tsettings', settings: Object.assign({}, s.room.settings, { hearts: false }) });
+  assert.equal(s.room.settings.hearts, false);
+  s.eng.handle(s.teacher, { t: 'tsettings', settings: Object.assign({}, s.room.settings, { hearts: 'yes' }) });
+  assert.equal(s.room.settings.hearts, false);
+});
+
+test('추가 문제(주관식)를 틀려도 체력은 그대로', () => {
+  const s = setup(2); toPlaying(s, true);
+  const [a] = s.kids, p = s.P(a);
+  finishMine(s, a);
+  s.eng.handle(a, { t: 'twinpick', diff: 1 });
+  const hp = p.hp;
+  s.eng.handle(a, { t: 'twin', tid: p.twin.id, text: '모르겠어요' });
+  assert.equal(p.hp, hp);
+});
+
+test('무기·펫은 연출용 정보만 보내고 데미지는 같음', () => {
+  const s = setup(2); toPlaying(s, true);
+  const [a, b] = s.kids, p = s.P(a);
+  p.owned.push('w_light', 'p_whale'); p.equip.weapon = 'w_light'; p.equip.pet = 'p_whale';
+  right(s, a);
+  const f = b.inbox.filter(m => m.t === 'fx' && m.kind === 'hit').at(-1);
+  assert.equal(f.weapon, 'w_light'); assert.equal(f.pet, 'p_whale'); assert.equal(f.dmg, SMALL);
+});
+
+// ───── v0.24 별 누적 ─────
+test('비싼 물건: 슬롯마다 200~500 별짜리 5개씩', () => {
+  const { CATALOG } = require('../shared/engine.js');
+  for (const slot of ['hat', 'glasses', 'weapon', 'pet', 'bg']) {
+    const pricey = CATALOG.filter(i => i.slot === slot && i.price >= 200 && i.price <= 500 && /^(h_knight|h_mush|h_pumpkin|h_fire|h_gem|g_swirl|g_ice|g_bolt|g_moon|g_crystal|w_twin|w_boomer|w_axe|w_comet|w_light|p_lion|p_dolphin|p_dino|p_eagle|p_whale|bg_aurora|bg_galaxy|bg_rainbow|bg_palace|bg_fireworks)$/.test(i.id));
+    assert.equal(pricey.length, 5, slot);
+    for (const i of pricey) assert.ok(slot === 'bg' ? i.css : i.icon, i.id);
+  }
+  assert.equal(new Set(CATALOG.map(i => i.id)).size, CATALOG.length, '아이디가 겹치지 않음');
+});
+
+function bankRoom(list, joinFirst) {
+  const pending = [];
+  const eng = createEngine({ setTimeout: f => pending.push(f), now: () => 1e12 });
+  const t = fakeConn();
+  eng.handle(t, { t: 'tcreate', settings: { size: 4, stages: 2, perStage: 3, diag: 3 } });
+  const code = t.last('troom').code, room = eng.rooms.get(code);
+  const kids = [];
+  const join = (num, name) => { const c = fakeConn(); eng.handle(c, { t: 'join', code, num, name }); kids.push(c); return room.players.get(c.ctx.pid); };
+  if (joinFirst) joinFirst(join);
+  eng.handle(t, { t: 'tbank', list });
+  return { eng, t, code, room, join, kids };
+}
+
+test('별 누적: 같은 번호·이름(띄어쓰기 무시)으로 들어오면 별과 산 물건을 이어 받음', () => {
+  const b = bankRoom([{ num: 3, name: '김 민준', points: 250, owned: ['h_cap', 'w_light', '없는물건'], equip: { base: 'b_cat', hat: 'h_cap', weapon: 'w_light', pet: 'p_dog' } }]);
+  const p = b.join(3, '김민준');
+  assert.equal(p.points, 250);
+  assert.deepEqual(p.owned, ['h_cap', 'w_light'], '없는 물건은 버림');
+  assert.equal(p.equip.hat, 'h_cap'); assert.equal(p.equip.weapon, 'w_light'); assert.equal(p.equip.base, 'b_cat');
+  assert.equal(p.equip.pet, undefined, '사지 않은 펫은 끼지 않음');
+  const q = b.join(4, '김민준'); assert.equal(q.points, 0, '번호가 다르면 다른 학생');
+  const tp = b.t.last('tstate').players.find(x => x.num === 3);
+  assert.deepEqual(tp.owned, ['h_cap', 'w_light']); assert.equal(tp.equip.weapon, 'w_light');
+});
+
+test('별 누적: 저장 목록이 늦게 와도 먼저 들어온 학생이 번 별에 더해짐', () => {
+  const b = bankRoom([{ num: 1, name: '가', points: 100, owned: ['h_top'], equip: { hat: 'h_top' } }], join => { const p = join(1, '가'); p.points = 15; });
+  const p = [...b.room.players.values()][0];
+  assert.equal(p.points, 115); assert.deepEqual(p.owned, ['h_top']);
+  b.eng.handle(b.t, { t: 'tbank', list: [{ num: 1, name: '가', points: 100 }] });
+  assert.equal(p.points, 115, '이미 받은 학생에게 두 번 더하지 않음');
+});
+
+test('별 누적: 파일 불러오기(force)는 지금 방 학생 별을 파일 값으로 바꿈', () => {
+  const b = bankRoom([], join => join(2, '나'));
+  const p = [...b.room.players.values()][0]; p.points = 30;
+  b.eng.handle(b.t, { t: 'tbank', list: [{ num: 2, name: '나', points: 400, owned: ['bg_space'], equip: { bg: 'bg_space' } }], force: true });
+  assert.equal(p.points, 400); assert.equal(p.equip.bg, 'bg_space');
+});
+
+test('별 초기화: 모든 학생의 별과 물건을 지우고, 다시 들어와도 되살아나지 않음', () => {
+  const b = bankRoom([{ num: 5, name: '다', points: 300, owned: ['p_fox'], equip: { pet: 'p_fox' } }]);
+  const p = b.join(5, '다'); assert.equal(p.points, 300);
+  b.eng.handle(b.t, { t: 'tbankreset' });
+  assert.equal(p.points, 0); assert.deepEqual(p.owned, []); assert.equal(p.equip.pet, undefined);
+  assert.match(b.t.last('toast').msg, /지웠어요/);
+});
+
+test('별 누적: 가상 친구는 저장하지도 받지도 않음, 대기실에서 내보낸 학생은 다시 들어와도 별이 남음', () => {
+  const b = bankRoom([]);
+  b.eng.handle(b.t, { t: 'tbots', n: 1 });
+  const bot = [...b.room.players.values()].find(x => x.bot);
+  assert.equal(bot.points, 0);
+  const p = b.join(7, '라'); p.points = 60; p.owned.push('h_cap');
+  b.eng.handle(b.t, { t: 'tkick', pid: p.pid });
+  const again = b.join(7, '라');
+  assert.equal(again.points, 60); assert.deepEqual(again.owned, ['h_cap']);
 });

@@ -27,6 +27,7 @@
       <div class="ov ov-detail" hidden></div>
       <div class="ov ov-research" hidden></div>
       <div class="toasts" aria-live="polite"></div>
+      <input type="file" class="bank-file" accept=".json,application/json" hidden>
       <div class="conn-bar" hidden>서버와 연결이 끊겼어요. 다시 연결하는 중…</div>`;
     const $ = s => root.querySelector(s);
     const body = $('.t-body');
@@ -44,7 +45,7 @@
       SND.prevPhase = ts.phase;
     }
 
-    const T = { detail: null, detailPid: null, ts: null, code: null, key: null, draft: { grade: 6, subject: 'math', unit: 'frac', area: 'all', diff: 'auto', stages: 3, perStage: 3, diag: 4, size: 4 }, tab: 'grade', visited: new Set(['grade']), base: '', confirm: null, flash: {}, qrCache: {}, resuming: false };
+    const T = { detail: null, detailPid: null, ts: null, code: null, key: null, draft: { grade: 6, subject: 'math', unit: 'frac', area: 'all', diff: 'auto', stages: 3, perStage: 3, diag: 4, size: 4, hearts: true }, tab: 'grade', visited: new Set(['grade']), base: '', confirm: null, flash: {}, qrCache: {}, resuming: false };
     // ───── 구글 시트 자동 저장 (서버가 보냄) ─────
     // 시트 주소는 Render 환경 변수(MQ_SHEET_URL)에만 있고, 이 화면에는 켜짐/꺼짐과 마지막 저장 결과만 보입니다.
     const hhmm = ms => { const d = new Date(ms); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
@@ -60,6 +61,61 @@
         <p class="small sheet-status" aria-live="polite">${esc(st)}</p></section>`;
     }
     function renderSheetBox() { const b = $('.ov-research .sheet-box'); if (b) b.outerHTML = sheetBoxHtml(T.research); }
+
+    // ───── 별 모으기 (v0.24): 학생 별·산 물건을 이 컴퓨터 브라우저에 출석 번호·이름(띄어쓰기 무시)으로 저장 ─────
+    const BANK_KEY = 'mq_bank';
+    const bkey = (num, name) => num + '|' + String(name || '').replace(/\s/g, '');
+    const bankLoad = () => { const b = demo ? null : store.get('localStorage', BANK_KEY); return b && b.list && typeof b.list === 'object' ? b : { v: 1, list: {} }; };
+    let BANK = bankLoad();
+    const bankSave = () => { if (!demo) store.set('localStorage', BANK_KEY, BANK); };
+    const bankList = () => Object.values(BANK.list);
+    function bankSync(ts) { // 선생님 화면에 새 소식이 올 때마다 학생 별을 저장
+      if (demo) return;
+      const real = ts.players.filter(p => !p.bot);
+      if (T.bankHold) { // 별 초기화 직후: 서버가 지우기 전에 보낸 소식으로 다시 저장하지 않게
+        if (Date.now() < T.bankHold && real.some(p => p.points || (p.owned || []).length)) return;
+        T.bankHold = 0;
+      }
+      let changed = false;
+      for (const p of real) {
+        const k = bkey(p.num, p.name), e = { num: p.num, name: p.name, points: p.points || 0, owned: p.owned || [], equip: p.equip || {} }, old = BANK.list[k];
+        if (!old || JSON.stringify([old.points, old.owned, old.equip]) !== JSON.stringify([e.points, e.owned, e.equip])) { BANK.list[k] = Object.assign(e, { at: Date.now() }); changed = true; }
+      }
+      if (changed) bankSave();
+    }
+    function bankCard() {
+      if (demo) return '';
+      const n = bankList().length;
+      return `<section class="t-card t-bank"><h3>⭐ 별 모으기</h3>
+        <p class="small">학생의 별과 산 물건을 <b>이 컴퓨터 브라우저</b>에 저장해요. 다음 수업에서 같은 출석 번호·이름으로 들어오면 그대로 이어 받아요. <span class="muted">(지금 저장된 학생 ${n}명)</span></p>
+        <div class="row wrap"><button type="button" class="btn btn-ghost sm" data-act="bank-export" ${n ? '' : 'disabled'}>📤 파일로 내보내기</button><button type="button" class="btn btn-ghost sm" data-act="bank-import">📥 파일 불러오기</button><button type="button" class="btn btn-ghost sm bank-reset" data-act="ask-bank-reset" ${n || (T.ts && T.ts.players.some(p => !p.bot && (p.points || (p.owned || []).length))) ? '' : 'disabled'}>🗑️ 별 초기화</button></div>
+        <p class="hint small">다른 컴퓨터에서 수업할 때는 내보낸 파일을 그 컴퓨터에서 불러오세요. 이름은 띄어쓰기를 무시하고 비교해요.</p></section>`;
+    }
+    function bankExport() {
+      const file = `몬스터퀴즈_별_${new Date().toISOString().slice(0, 10)}.json`;
+      try {
+        const blob = new Blob([JSON.stringify({ app: 'monster-quest', kind: 'stars', v: 1, saved: new Date().toISOString(), list: bankList() }, null, 1)], { type: 'application/json' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file;
+        document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+        toast($('.toasts'), `⬇️ ${file} 을(를) 내려받았어요.`);
+      } catch (e) { toast($('.toasts'), '이 화면에서는 내려받기가 막혀 있어요.'); }
+    }
+    function bankImport(text) {
+      let d; try { d = JSON.parse(text); } catch (e) { d = null; }
+      const list = d && (Array.isArray(d) ? d : Array.isArray(d.list) ? d.list : null);
+      const ok = (list || []).filter(e => e && Number.isInteger(e.num) && e.num >= 1 && e.num <= 60 && typeof e.name === 'string' && e.name.trim());
+      if (!ok.length) return toast($('.toasts'), '별 파일이 아니에요. [📤 파일로 내보내기]로 만든 파일을 골라 주세요.');
+      for (const e of ok) BANK.list[bkey(e.num, e.name)] = { num: e.num, name: e.name, points: Math.max(0, Math.round(Number(e.points) || 0)), owned: Array.isArray(e.owned) ? e.owned.filter(x => typeof x === 'string') : [], equip: e.equip && typeof e.equip === 'object' ? e.equip : {}, at: Date.now() };
+      bankSave();
+      if (T.code) net.send({ t: 'tbank', list: bankList(), force: true });
+      toast($('.toasts'), `📥 학생 ${ok.length}명의 별을 불러왔어요.${T.code ? ' 지금 방에 있는 학생도 파일의 별로 바뀌어요.' : ''}`);
+      render();
+    }
+    $('.bank-file').addEventListener('change', e => {
+      const f = e.target.files && e.target.files[0]; if (!f) return;
+      const r = new FileReader(); r.onload = () => bankImport(String(r.result || '')); r.readAsText(f); e.target.value = '';
+    });
+    window.__mqBank = { bankImport, bankList, bkey }; // 자동 검사용
 
     const saved = demo ? null : store.get('localStorage', 'mq_t');
     if (saved && saved.code && saved.key) { T.code = saved.code; T.key = saved.key; T.resuming = true; }
@@ -80,8 +136,8 @@
       if (!T.code && ['tstate', 'tdetail', 'tresearch', 'tfx'].indexOf(m.t) >= 0) return;
       if (m.t === 'tstate' && m.code && m.code !== T.code) return;
       switch (m.t) {
-        case 'troom': T.code = m.code; T.key = m.key; T.resuming = false; if (!demo) store.set('localStorage', 'mq_t', { code: m.code, key: m.key }); break;
-        case 'tstate': T.ts = m; T.draft = Object.assign({}, m.settings); soundOnState(m); render(); renderSheetBox(); break;
+        case 'troom': T.code = m.code; T.key = m.key; T.resuming = false; if (!demo) { store.set('localStorage', 'mq_t', { code: m.code, key: m.key }); net.send({ t: 'tbank', list: bankList() }); } break;
+        case 'tstate': T.ts = m; T.draft = Object.assign({}, m.settings); bankSync(m); soundOnState(m); render(); renderSheetBox(); break;
         case 'terror': store.del('localStorage', 'mq_t'); T.code = null; T.key = null; T.ts = null; T.resuming = false; render(); toast($('.toasts'), m.msg); break;
         case 'toast': toast($('.toasts'), m.msg); break;
         case 'tdetail': if (T.detailPid === m.pid) { T.detail = m; renderDetail(); } break;
@@ -109,6 +165,7 @@
         case 'perStage': return `스테이지마다 ${s.perStage}문제`;
         case 'diag': return `${s.diag}문항`;
         case 'size': return `${s.size}명`;
+        case 'hearts': return s.hearts === false ? '체력 꺼짐' : '체력 켜짐';
       }
     }
     function settingsHtml(s, locked) {
@@ -132,6 +189,8 @@
       return `<div class="t-settings">
         <div class="set-tabs" role="tablist" aria-label="게임 설정">${TABS.map((t, i) => `<button type="button" class="set-tab" role="tab" aria-selected="${T.tab === t[0]}" data-act="tab" data-k="${t[0]}"><small>${locked ? '' : T.visited.has(t[0]) ? '✅ ' : '⬜ '}${i + 1}. ${t[1]}</small><b>${esc(valueOf(s, t[0]))}</b></button>`).join('')}</div>
         <div class="set-panel" role="tabpanel">${panel}<div class="row end">${next}</div></div>
+        <div class="hearts-set"><div><b>❤️ 체력 규칙</b><p class="hint">켜면 학생마다 ❤️ 5칸이 생겨요. 틀리면 1칸 줄고, 맞히면 1칸 차요. 0이 되면 5초 동안 기절하고 ❤️ 1칸으로 일어나요. 기절한 동안 친구 힌트를 쓰면 바로 일어나고 ❤️ 2칸이 돼요.</p></div>
+          <div class="opts hearts-opts" role="radiogroup" aria-label="체력 규칙">${opt('hearts', 'on', s.hearts !== false, '<b>❤️ 켜기</b>')}${opt('hearts', 'off', s.hearts === false, '<b>끄기</b>')}</div></div>
         ${locked ? '<p class="hint">게임 중에는 설정을 바꿀 수 없어요. 대기실로 돌아가면 다시 바꿀 수 있어요.</p>' : ''}
       </div>`;
     }
@@ -143,7 +202,7 @@
         ${left.length ? `<p class="hint create-hint">아직 확인하지 않은 단계: ${left.map(([t, i]) => `${i + 1}. ${esc(t[1])}`).join(' · ')}</p>` : '<p class="hint create-hint ok">8단계를 모두 확인했어요. 방을 만들 수 있어요!</p>'}`;
     }
     function changeSetting(k, v) {
-      if (T.tab) T.visited.add(T.tab);
+      if (T.tab && k !== 'hearts') T.visited.add(T.tab);
       const cur = T.ts ? T.ts.settings : T.draft;
       const s = Object.assign({}, cur, { [k]: v });
       const firstReady = sj => (sj.units.find(u => u.ready) || sj.units[0]).id;
@@ -268,8 +327,8 @@
       { const b = $('[data-act="snd-all"]'); b.hidden = !ts; if (ts) { b.textContent = ts.soundOff ? '📱 학생 소리 꺼짐' : '📱 학생 소리 켜짐'; b.setAttribute('aria-pressed', String(!ts.soundOff)); b.title = '모든 학생 기기의 효과음을 한 번에 끄거나 켜요'; } }
       const cf = $('.t-confirm');
       if (T.confirm) {
-        const txt = T.confirm === 'end' ? '게임을 끝낼까요? 학생 화면에 결과가 나와요.' : '지금 수업을 닫고 새 수업을 만들까요? 학생들은 새 방 번호로 다시 들어와야 하고, 협력 리포트도 사라져요. 필요하면 먼저 내려받아 두세요.';
-        cf.innerHTML = `<span>${txt}</span><button type="button" class="btn btn-danger sm" data-act="${T.confirm === 'end' ? 'end' : 'new'}">네</button><button type="button" class="btn btn-ghost sm" data-act="cancel">아니요</button>`;
+        const txt = T.confirm === 'bank' ? '모든 학생의 별과 산 물건을 지울까요? 이 컴퓨터에 저장된 기록도 지워지고 되돌릴 수 없어요. 필요하면 먼저 [📤 파일로 내보내기]를 눌러 두세요.' : T.confirm === 'end' ? '게임을 끝낼까요? 학생 화면에 결과가 나와요.' : '지금 수업을 닫고 새 수업을 만들까요? 학생들은 새 방 번호로 다시 들어와야 하고, 협력 리포트도 사라져요. 필요하면 먼저 내려받아 두세요.';
+        cf.innerHTML = `<span>${txt}</span><button type="button" class="btn btn-danger sm" data-act="${T.confirm === 'bank' ? 'bank-reset' : T.confirm === 'end' ? 'end' : 'new'}">네</button><button type="button" class="btn btn-ghost sm" data-act="cancel">아니요</button>`;
         cf.hidden = false;
       } else cf.hidden = true;
 
@@ -277,17 +336,17 @@
       if (!ts) {
         body.innerHTML = T.resuming
           ? `<section class="t-card center"><h2>이전 수업에 다시 연결하는 중<span class="dots"></span></h2></section>`
-          : `<section class="t-card t-setup"><h2>수업 만들기</h2><p class="muted">탭을 눌러 하나씩 고르세요. 다 고르면 아래에서 방을 만들어 QR을 보여 줘요.</p>${settingsHtml(T.draft, false)}${createBtn()}</section>`;
+          : `<section class="t-card t-setup"><h2>수업 만들기</h2><p class="muted">탭을 눌러 하나씩 고르세요. 다 고르면 아래에서 방을 만들어 QR을 보여 줘요.</p>${settingsHtml(T.draft, false)}${createBtn()}</section>${bankCard()}`;
       } else {
         const frozenBar = ts.frozen ? `<div class="t-frozen" role="status">❄️ 지금 모든 학생 화면이 멈춰 있어요 (채팅·답 제출도 멈춤)</div>` : '';
         const mainHtml = ts.phase === 'lobby' || ts.phase === 'diagcount' ? rosterHtml(ts)
           : ts.phase === 'diag' ? diagHtml(ts)
             : ts.phase === 'grouped' || ts.phase === 'countdown' ? `<div class="panel-head"><h3>🛡️ 모둠 구성 (레벨을 고르게 섞었어요)</h3>${ts.phase === 'grouped' ? '<button type="button" class="btn btn-ghost sm" data-act="shuffle">🔀 모둠 다시 섞기</button>' : ''}</div>${groupCards(ts, 'group')}`
               : ts.phase === 'playing' ? playHtml(ts) : endHtml(ts);
-        body.innerHTML = `${frozenBar}<div class="t-grid"><div class="t-side">${qrCard()}${handsCard(ts)}</div><div class="t-col">
+        body.innerHTML = `${frozenBar}<div class="t-grid"><div class="t-side">${qrCard()}${handsCard(ts)}${ts.phase === 'lobby' || ts.phase === 'ended' ? bankCard() : ''}</div><div class="t-col">
           <section class="t-card t-ctl">${controls(ts)}</section>
           <section class="t-card t-main">${mainHtml}</section>
-          <details class="t-card t-set" ${ts.phase === 'lobby' ? 'open' : ''}><summary>⚙️ 게임 설정 · ${esc(valueOf(ts.settings, 'unit'))} · ${esc(valueOf(ts.settings, 'diff'))} · 스테이지 ${ts.settings.stages} · ${ts.settings.size}명 모둠</summary>${settingsHtml(ts.settings, ts.phase !== 'lobby')}</details>
+          <details class="t-card t-set" ${ts.phase === 'lobby' ? 'open' : ''}><summary>⚙️ 게임 설정 · ${esc(valueOf(ts.settings, 'unit'))} · ${esc(valueOf(ts.settings, 'diff'))} · 스테이지 ${ts.settings.stages} · ${ts.settings.size}명 모둠 · ${esc(valueOf(ts.settings, 'hearts'))}</summary>${settingsHtml(ts.settings, ts.phase !== 'lobby')}</details>
         </div></div>`;
       }
       if (focusId) { const el = body.querySelector('#' + focusId); if (el) el.focus(); }
@@ -332,7 +391,7 @@
     function sheetRows(k, R) {
       const M = R.meta, S = R.summary, sv = x => (x == null ? '' : x);
       if (k === 'summary') return [
-        ['항목', '값', '설명'], ['날짜', M.date.slice(0, 10), ''], ['방 번호', M.code, ''], ['단원', M.unit, ''], ['평가 요소', M.area, ''], ['스테이지 수', M.stages, ''], ['1인 문제 수', M.perStage, ''], ['모둠 인원 설정', M.size, ''], ['게임 시간(분)', M.minutes, ''], ['힌트 순서', M.hintOrder || '앱 힌트 먼저', '친구 힌트 먼저: 틀리면 모둠 힌트 상자를 먼저 제안하고 앱 힌트는 미뤄요(v0.23부터)'],
+        ['항목', '값', '설명'], ['날짜', M.date.slice(0, 10), ''], ['방 번호', M.code, ''], ['단원', M.unit, ''], ['평가 요소', M.area, ''], ['스테이지 수', M.stages, ''], ['1인 문제 수', M.perStage, ''], ['모둠 인원 설정', M.size, ''], ['게임 시간(분)', M.minutes, ''], ['힌트 순서', M.hintOrder || '앱 힌트 먼저', '친구 힌트 먼저: 틀리면 모둠 힌트 상자를 먼저 제안하고 앱 힌트는 미뤄요(v0.23부터)'], ['체력 규칙', M.heartsRule || '꺼짐', '켜짐: ❤️ 5칸, 틀리면 1칸 줄고 맞히면 1칸 참. 0이면 5초 기절, 기절 중 친구 힌트를 쓰면 바로 일어남(v0.24부터)'],
         ['학생 수', S.students, '가상 친구는 빼고 실제 학생만'], ['가상 친구 수', S.bots || 0, '모둠 활동에는 참여했지만 표에서는 뺐어요'], ['가상 친구 힌트를 쓴 횟수', S.hintsFromBots || 0, '실제 학생이 가상 친구가 만든 힌트를 쓴 횟수'], ['모둠 수', S.groups, ''], ['전원 해결률(%)', sv(S.allSolveRate), '모둠원 모두가 해결해 합동 공격까지 간 스테이지 비율'], ['최종 보스 처치 모둠 수', S.finishedGroups, ''],
         ['평균 문제 해결률(%)', sv(S.solveRate), '받은 문제 중 끝까지 해결한 비율의 평균'], ['만든 힌트 수', S.hintsMade, ''], ['쓰인 힌트 수', S.hintsUsed, ''], ['힌트 사용률(%)', sv(S.hintUseRate), '쓰인 힌트 ÷ 만든 힌트'],
         ['친구 힌트 뒤 해결률(%)', sv(S.hintSolvedRate), '친구 힌트를 쓴 문제를 결국 해결한 비율'], ['상위→하위 도움 횟수', S.lowToHigh, '레벨 3~4가 만든 힌트를 레벨 1~2가 쓴 횟수'], ['평균 완료 격차(초)', sv(S.avgGapSec), '모둠 안 첫 완료자와 마지막 완료자 사이 시간'],
@@ -448,7 +507,7 @@
       const a = el.dataset.act, k = el.dataset.k;
       switch (a) {
         case 'tab': T.tab = k; T.visited.add(k); render(); break;
-        case 'set': changeSetting(k, k === 'grade' || k === 'diag' ? Number(el.dataset.v) : k === 'diff' ? (el.dataset.v === 'auto' ? 'auto' : Number(el.dataset.v)) : el.dataset.v); break;
+        case 'set': changeSetting(k, k === 'hearts' ? el.dataset.v === 'on' : k === 'grade' || k === 'diag' ? Number(el.dataset.v) : k === 'diff' ? (el.dataset.v === 'auto' ? 'auto' : Number(el.dataset.v)) : el.dataset.v); break;
         case 'step': { const cur = (T.ts ? T.ts.settings : T.draft)[k]; const [lo, hi] = RANGE[k]; changeSetting(k, Math.min(hi, Math.max(lo, cur + Number(el.dataset.d)))); break; }
         case 'create': if (!allVisited()) { toast($('.toasts'), '8단계를 모두 확인해야 방을 만들 수 있어요.'); break; } net.send({ t: 'tcreate', settings: T.draft }) || toast($('.toasts'), '연결하는 중이에요. 잠시 뒤 다시 눌러 주세요.'); break;
         case 'diag': net.send({ t: 'tdiag' }); break;
@@ -461,6 +520,10 @@
         case 'snd-me': if (sfx) { sfx.toggle(); render(); } break;
         case 'snd-all': if (T.ts) net.send({ t: 'tsound', off: !T.ts.soundOff }); break;
         case 'cancel': T.confirm = null; render(); break;
+        case 'bank-export': bankExport(); break;
+        case 'bank-import': $('.bank-file').click(); break;
+        case 'ask-bank-reset': T.confirm = 'bank'; render(); break;
+        case 'bank-reset': T.confirm = null; BANK = { v: 1, list: {} }; bankSave(); if (T.code) { T.bankHold = Date.now() + 5000; net.send({ t: 'tbankreset' }); } else toast($('.toasts'), '⭐ 저장된 별과 산 물건을 지웠어요.'); render(); break;
         case 'end': T.confirm = null; net.send({ t: 'tend' }); render(); break;
         case 'new': net.send({ t: 'tleave' }); T.confirm = null; T.research = null; T.researchOpen = false; T.detailPid = null; T.detail = null; $('.ov-research').hidden = true; $('.ov-detail').hidden = true; store.del('localStorage', 'mq_t'); T.code = null; T.key = null; T.ts = null; render(); break;
         case 'reset': net.send({ t: 'treset' }); break;

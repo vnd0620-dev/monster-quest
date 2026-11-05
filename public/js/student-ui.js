@@ -70,7 +70,11 @@
           S.st = m; render();
           if (S.shopOpen) { if (m.canShop) renderShop(); else closeShop(); }
           break;
-        case 'result': if (!m.correct) S.justWrong = true; sound(m.correct ? 'correct' : 'wrong'); break;
+        case 'result':
+          if (!m.correct) S.justWrong = true; sound(m.correct ? 'correct' : 'wrong');
+          if (!m.twin && !m.correct) S.fx.push({ kind: 'ouch', hearts: !!(S.st && S.st.hearts), faint: !!m.faint }); // 몬스터가 나를 공격
+          if (!m.twin && m.correct && S.st && S.st.hearts && S.st.me && S.st.me.hp < (S.st.hpMax || 5)) S.fx.push({ kind: 'heal' });
+          break;
         case 'fx': S.fx.push(m); break;
         case 'toast': toast($('.toasts'), m.msg); break;
         case 'notes':
@@ -251,9 +255,9 @@
       </section>`;
     }
 
-    function choiceButtons(q, act) {
+    function choiceButtons(q, act, lock) {
       const gone = i => (q.tried || []).indexOf(i) >= 0 || (q.eliminated || []).indexOf(i) >= 0;
-      return `<div class="choices">${q.choices.map((c, i) => `<button type="button" class="choice ${S.sel === i ? 'sel' : ''} ${gone(i) ? 'tried' : ''}" data-act="${act}" data-i="${i}" ${gone(i) ? 'disabled' : ''}>${gone(i) ? '<span class="x" aria-hidden="true">✗</span>' : ''}${math(c)}</button>`).join('')}</div>`;
+      return `<div class="choices">${q.choices.map((c, i) => `<button type="button" class="choice ${S.sel === i ? 'sel' : ''} ${gone(i) ? 'tried' : ''}" data-act="${act}" data-i="${i}" ${gone(i) || lock ? 'disabled' : ''}>${gone(i) ? '<span class="x" aria-hidden="true">✗</span>' : ''}${math(c)}</button>`).join('')}</div>`;
     }
 
     function diagView(st) {
@@ -328,21 +332,29 @@
       const q = st.play.q, g = st.group;
       if (S.selQ !== q.id) { S.sel = null; S.selQ = q.id; }
       const wrongNow = S.justWrong; S.justWrong = false;
+      const faint = st.play.faint;
+      if (faint && S.faintId !== faint.id) { S.faintId = faint.id; S.faintEnd = Date.now() + faint.left; }
+      if (!faint) S.faintId = null;
+      const hp = st.me.hp == null ? 5 : st.me.hp, hpMax = st.hpMax || 5;
+      const hearts = st.hearts ? `<span class="hearts ${faint ? 'ko' : ''}" role="img" aria-label="체력 ${hp} / ${hpMax}">${Array.from({ length: hpMax }, (_, i) => `<i class="${i < hp ? 'on' : ''}">${i < hp ? '❤️' : '🤍'}</i>`).join('')}</span>` : '';
       const usable = (g.boxKinds || []).some(k => k.count && (q.canKinds || []).indexOf(k.kind) >= 0);
       const boxOffer = q.offer && usable && !q.gifts.length
         ? `<div class="box-offer friend-first" role="group" aria-label="친구 힌트 제안"><p class="ff-title">🎁 친구 힌트를 써 볼까요?</p><p class="small">모둠 친구들이 만든 힌트가 상자에 있어요. <b>하나만</b> 골라 써요.</p>${kindButtons(g, q)}<button type="button" class="btn btn-ghost sm ff-skip" data-act="decline">💪 혼자 더 해 볼게요</button></div>`
         : q.canTake && usable && !q.gifts.length
         ? `<div class="box-offer"><p>🎁 <b>모둠 힌트 상자</b>에 친구들이 만든 힌트가 있어요. 필요하면 <b>하나만</b> 골라 써요. <span class="muted small">(누르기 전에는 쓰이지 않아요)</span></p>${kindButtons(g, q)}</div>` : '';
-      return `<section class="s-card q-card ${wrongNow ? 'shake' : ''}">
-        <div class="q-top"><p class="q-label">나의 문제 ${st.play.qi + 1} / ${st.play.per}</p><span class="q-area">${esc(q.areaName)}</span></div>
+      const canRevive = usable && q.gifts.length === 0 && (q.offer || q.canTake);
+      const faintBox = faint ? `<div class="faint-box" role="status"><span class="faint-ico" aria-hidden="true">😵</span><div><b>기절했어요!</b> <b class="faint-sec"></b>초 뒤에 ❤️ 1칸으로 일어나요.${canRevive ? '<br>🎁 아래에서 친구 힌트를 쓰면 <b>바로</b> 일어나요. (❤️ 2칸)' : '<br>잠깐 쉬면서 문제를 다시 읽어 봐요.'}</div></div>` : '';
+      return `<section class="s-card q-card ${wrongNow ? 'shake' : ''} ${faint ? 'is-faint' : ''}">
+        <div class="q-top"><p class="q-label">나의 문제 ${st.play.qi + 1} / ${st.play.per}</p>${hearts}<span class="q-area">${esc(q.areaName)}</span></div>
         <h2 class="q-text">${math(q.text)}</h2>
-        ${choiceButtons(q, 'pick')}
+        ${faintBox}
+        ${choiceButtons(q, 'pick', !!faint)}
         ${q.gifts.map(gf => `<div class="gift-note">🎁 친구 힌트 · <b>${esc(gf.label)}</b> — ${math(gf.text)}</div>`).join('')}
         ${q.steps.map((h, i) => `<div class="step step${i + 1}">${STEP[i]} — ${math(h)}</div>`).join('')}
         ${boxOffer}
         ${st.play.twin && (st.play.twin.state === 'open' || st.play.twin.state === 'reward') ? '<p class="small muted">📚 지난 스테이지에서 풀던 추가 문제는 내 문제를 다 풀면 이어서 풀 수 있어요.</p>' : ''}
         ${q.tried.length ? `<p class="saved">📒 오답노트에 자동 저장됐어요 · ${q.tried.length}번째 도전 중, 틀려도 괜찮아요</p>` : '<p class="soft muted">천천히 생각해도 불이익은 없어요. 시간 제한이 없어요.</p>'}
-        <button type="button" class="btn btn-gold btn-big" data-act="submit" ${S.sel == null ? 'disabled' : ''}>✓ 정답 제출</button>
+        <button type="button" class="btn btn-gold btn-big" data-act="submit" ${S.sel == null || faint ? 'disabled' : ''}>${faint ? '😵 기절 중…' : '✓ 정답 제출'}</button>
       </section>`;
     }
 
@@ -587,10 +599,13 @@
       S.prevHp = g ? { gid: g.id, stage: g.stage, pct: g.hpMax ? g.hp / g.hpMax * 100 : 0 } : null;
       // 모둠원 모두 해결 → 합동 공격 가능 알림음 (스테이지마다 한 번)
       if (st && st.phase === 'playing' && g && g.ready && !g.done) { const k = st.code + g.id + g.stage; if (S.readySnd !== k) { S.readySnd = k; sound('ready'); } }
+      faintTick(st);
       const fx = S.fx; S.fx = [];
       for (const f of fx) {
         const wrap = main.querySelector('#s-monwrap'), mon = wrap && wrap.querySelector('.mon');
-        if (f.kind === 'hit' && mon) hitFx(wrap, mon, f.dmg, false, f.by); // 친구 공격은 소리 없음 (내 공격은 정답 소리로 울림)
+        if (f.kind === 'hit' && mon) hitFx(wrap, mon, f.dmg, false, f.by, f); // 친구 공격은 소리 없음 (내 공격은 정답 소리로 울림)
+        if (f.kind === 'ouch') ouchFx(wrap, mon, f);
+        if (f.kind === 'heal') popAt(main.querySelector('.q-card .hearts'), '+1 ❤️', 'heal-pop');
         if (f.kind === 'team') {
           const arenaEl = main.querySelector('#s-arena');
           if (arenaEl) { arenaEl.classList.remove('quake'); void arenaEl.offsetWidth; arenaEl.classList.add('quake'); }
@@ -599,18 +614,49 @@
       }
     }
 
-    function hitFx(wrap, mon, dmg, big, by) {
-      mon.classList.remove('hit', 'hit-big'); void mon.offsetWidth; mon.classList.add(big ? 'hit-big' : 'hit');
-      const slash = document.createElement('div'); slash.className = 'slash' + (big ? ' big' : ''); wrap.appendChild(slash);
-      const d = document.createElement('div'); d.className = 'dmg' + (big ? ' big' : ''); d.innerHTML = '-' + dmg + (by ? `<small>${esc(by)}</small>` : ''); wrap.appendChild(d);
-      setTimeout(() => { slash.remove(); d.remove(); }, 1200);
+    // 무기·펫 연출 (v0.24): 능력치는 없고 보이는 효과만 달라요. 비싼 무기일수록 숫자와 효과가 커요.
+    const itemOf = id => (id && (S.catalog || []).find(i => i.id === id)) || null;
+    const tierOf = it => (!it ? 0 : it.price >= 200 ? 4 : it.price >= 100 ? 3 : it.price >= 50 ? 2 : 1);
+    const TIER_WORD = ['', '', '', '💥 강한 공격!', '🌟 필살기!'];
+    function addEl(wrap, cls, html, ms, delay) {
+      const go = () => { const el = document.createElement('div'); el.className = cls; el.innerHTML = html; el.setAttribute('aria-hidden', 'true'); wrap.appendChild(el); setTimeout(() => el.remove(), ms); };
+      if (delay) setTimeout(go, delay); else go();
+    }
+    function hitFx(wrap, mon, dmg, big, by, f) {
+      f = f || {};
+      const wp = itemOf(f.weapon), pet = itemOf(f.pet), tier = tierOf(wp);
+      mon.classList.remove('hit', 'hit-big'); void mon.offsetWidth; mon.classList.add(big || tier >= 3 ? 'hit-big' : 'hit');
+      addEl(wrap, `slash${big ? ' big' : ''}${tier ? ' w' + tier : ''}`, '', 1200);
+      if (wp) addEl(wrap, `wfx w${tier}`, wp.icon, 1100); // 무기가 몬스터에게 날아가요
+      if (tier >= 3) addEl(wrap, `burst w${tier}`, '', 1000, 180);
+      addEl(wrap, `dmg${big ? ' big' : ''}${tier ? ' w' + tier : ''}`, '-' + dmg + (TIER_WORD[tier] ? `<em>${TIER_WORD[tier]}</em>` : '') + (by ? `<small>${esc(by)}</small>` : ''), 1300);
+      if (pet) addEl(wrap, 'pfx', pet.icon, 1300, 260); // 펫도 함께 공격 (숫자 없음)
       main.querySelectorAll('.team li').forEach((li, i) => setTimeout(() => li.classList.add('jump'), i * 70));
+    }
+    // 틀렸을 때: 몬스터가 나를 공격해요
+    function ouchFx(wrap, mon, f) {
+      if (mon) { mon.classList.remove('lunge'); void mon.offsetWidth; mon.classList.add('lunge'); setTimeout(() => mon.classList.remove('lunge'), 700); }
+      const card = main.querySelector('.q-card');
+      if (card) { addEl(card, 'claw', '', 700); }
+      if (f.hearts) popAt(main.querySelector('.q-card .hearts'), f.faint ? '😵 기절!' : '-1 ❤️', f.faint ? 'hurt-pop big' : 'hurt-pop');
+    }
+    function popAt(anchor, text, cls) {
+      if (!anchor) return;
+      const el = document.createElement('span'); el.className = 'pop ' + cls; el.textContent = text; el.setAttribute('aria-hidden', 'true');
+      anchor.appendChild(el); setTimeout(() => el.remove(), 1100);
+    }
+    // 기절 남은 시간 (화면을 다시 그리지 않고 숫자만 바꿔요)
+    function faintTick(st) {
+      const on = !!(st && st.play && st.play.faint && S.faintEnd);
+      const paint = () => { const left = Math.max(0, Math.ceil((S.faintEnd - Date.now()) / 1000)); main.querySelectorAll('.faint-sec').forEach(el => { el.textContent = left; }); };
+      if (on) { paint(); if (!S.faintT) S.faintT = setInterval(() => { if (!(S.st && S.st.play && S.st.play.faint)) { clearInterval(S.faintT); S.faintT = null; return; } paint(); }, 250); }
+      else if (S.faintT) { clearInterval(S.faintT); S.faintT = null; }
     }
 
     function showClear(f) {
       const ov = $('.ov-clear');
       ov.innerHTML = `<div class="ov-box clear-box" role="dialog" aria-label="합동 공격">
-        <div class="clear-stage">${monsterImg(f.monster, null, 'dying')}<div class="boom" aria-hidden="true"></div><div class="dmg big">-${f.dmg}</div></div>
+        <div class="clear-stage">${monsterImg(f.monster, null, 'dying')}<div class="boom" aria-hidden="true"></div>${itemOf(f.weapon) ? `<div class="wfx w${tierOf(itemOf(f.weapon))} team-wfx" aria-hidden="true">${itemOf(f.weapon).icon}</div>` : ''}${(f.pets || []).map(itemOf).filter(Boolean).map((it, i) => `<div class="pfx team-pet" style="--i:${i};--n:${(f.pets || []).length}" aria-hidden="true">${it.icon}</div>`).join('')}<div class="dmg big ${itemOf(f.weapon) ? 'w' + tierOf(itemOf(f.weapon)) : ''}">-${f.dmg}</div></div>
         <h2>⚔️ 모둠원 합동 공격!</h2>
         <p><b>${esc(f.monster.name)}</b> 처치 성공!${f.by ? ` (${esc(f.by)} 친구가 공격 버튼을 눌렀어요)` : ''}</p>
         ${f.last ? '<p class="next">🏆 최종 보스까지 물리쳤어요! 곧 결과가 나와요.</p>' : f.next ? `<p class="next">다음 몬스터 <b>${esc(f.next.name)}</b> 등장!${f.next.boss ? ' 최종 보스예요!' : ' 더 크고 강해졌어요.'}</p>` : ''}
@@ -652,7 +698,7 @@
       if (!el || el.disabled || !root.contains(el)) return;
       const st = S.st;
       switch (el.dataset.act) {
-        case 'pick': S.sel = Number(el.dataset.i); render(); break;
+        case 'pick': if (st && st.play && st.play.faint) return; S.sel = Number(el.dataset.i); render(); break;
         case 'submit':
           if (!st || !st.play || !st.play.q || S.sel == null) return;
           el.disabled = true; net.send({ t: 'answer', qid: st.play.q.id, choice: S.sel }); S.sel = null; break;

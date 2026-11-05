@@ -30,6 +30,8 @@
   const KIND_MAX = { elim: 2, concept: 4, step: 4 }; // 스테이지마다 종류별로 만들 수 있는 수 (합 10)
   const UNLOCK_BY = { elim: 1, concept: 1, step: 1 }; // 몇 번 틀리면 쓸 수 있는지 (v0.23: 모두 1번부터 — 친구 힌트를 앱 힌트보다 먼저)
   const POINTS = { correct: 10, extra: 10, give: 5, team: 20, note: 5 };
+  // 체력 (v0.24): ❤️ 5칸. 틀리면 1칸 줄고 맞히면 1칸 참. 0이 되면 기절(5초 동안 못 풂) → ❤️ 1칸으로 일어남. 기절 중 친구 힌트를 쓰면 바로 일어나고 ❤️ 2칸
+  const HP_MAX = 5, HP_GIFT = 2;
   const STAGE_TITLES = ['새끼', '성난', '거대한', '고대의'];
   const TEAM_NAMES = ['별빛 용사단', '불꽃 기사단', '바람 탐험대', '무지개 수호대', '번개 마법단', '달빛 모험단', '파도 원정대', '숲속 지킴이', '구름 파수꾼', '황금 방패단'];
   const CHAT = ['👍', '💪', '👏', '🤔', '🎉']; // 손들기는 따로 버튼
@@ -40,7 +42,7 @@
   const readyUnits = [];
   for (const sj of QB.subjects) for (const u of sj.units) if (u.ready) readyUnits.push(u);
   const firstUnit = readyUnits[0];
-  const DEFAULTS = { grade: 6, subject: QB.subjectOfUnit(firstUnit.id).id, unit: firstUnit.id, area: 'all', diff: 'auto', stages: 3, perStage: 3, diag: 4, size: 4 };
+  const DEFAULTS = { grade: 6, subject: QB.subjectOfUnit(firstUnit.id).id, unit: firstUnit.id, area: 'all', diff: 'auto', stages: 3, perStage: 3, diag: 4, size: 4, hearts: true };
 
   // ───── 상점 (포인트로 캐릭터 꾸미기) ─────
   const CATALOG = [
@@ -66,6 +68,18 @@
     { id: 'p_cat', slot: 'pet', name: '아기 고양이', price: 45, icon: '🐈' }, { id: 'p_turtle', slot: 'pet', name: '거북이', price: 45, icon: '🐢' }, { id: 'p_owl', slot: 'pet', name: '부엉이', price: 65, icon: '🦉' }, { id: 'p_penguin', slot: 'pet', name: '펭귄', price: 65, icon: '🐧' }, { id: 'p_phoenix', slot: 'pet', name: '불새', price: 200, icon: '🐦‍🔥' },
     { id: 'bg_sunset', slot: 'bg', name: '노을', price: 40, css: 'linear-gradient(#ff9a5a,#ff5e7e 60%,#6a3fb5)' }, { id: 'bg_forest', slot: 'bg', name: '숲속', price: 45, css: 'linear-gradient(#a8e6a3,#2f7d4a)' },
     { id: 'bg_cherry', slot: 'bg', name: '벚꽃', price: 60, css: 'radial-gradient(circle at 30% 30%,#ffe3ef,#ffb3cf 70%)' }, { id: 'bg_snow', slot: 'bg', name: '눈밭', price: 60, css: 'linear-gradient(#dff1ff,#ffffff)' }, { id: 'bg_lava', slot: 'bg', name: '용암 동굴', price: 120, css: 'radial-gradient(circle at 50% 100%,#ff7a18,#5a0f0f 70%)' },
+    // v0.24 비싼 물건 (별을 여러 날 모아서 사요)
+    { id: 'h_knight', slot: 'hat', name: '기사 투구', price: 200, icon: '🪖' }, { id: 'h_mush', slot: 'hat', name: '버섯 모자', price: 250, icon: '🍄' }, { id: 'h_pumpkin', slot: 'hat', name: '호박 모자', price: 300, icon: '🎃' },
+    { id: 'h_fire', slot: 'hat', name: '불꽃 머리', price: 400, icon: '🔥' }, { id: 'h_gem', slot: 'hat', name: '다이아 왕관', price: 500, icon: '💎' },
+    { id: 'g_swirl', slot: 'glasses', name: '빙글빙글 안경', price: 200, icon: '🌀' }, { id: 'g_ice', slot: 'glasses', name: '얼음 안경', price: 250, icon: '❄️' }, { id: 'g_bolt', slot: 'glasses', name: '번개 고글', price: 300, icon: '⚡' },
+    { id: 'g_moon', slot: 'glasses', name: '달빛 안경', price: 400, icon: '🌙' }, { id: 'g_crystal', slot: 'glasses', name: '수정 안경', price: 500, icon: '💠' },
+    { id: 'w_twin', slot: 'weapon', name: '쌍검', price: 200, icon: '⚔️' }, { id: 'w_boomer', slot: 'weapon', name: '부메랑', price: 250, icon: '🪃' }, { id: 'w_axe', slot: 'weapon', name: '전투 도끼', price: 300, icon: '🪓' },
+    { id: 'w_comet', slot: 'weapon', name: '유성 지팡이', price: 400, icon: '☄️' }, { id: 'w_light', slot: 'weapon', name: '빛의 마법', price: 500, icon: '✨' },
+    { id: 'p_lion', slot: 'pet', name: '아기 사자', price: 200, icon: '🦁' }, { id: 'p_dolphin', slot: 'pet', name: '돌고래', price: 250, icon: '🐬' }, { id: 'p_dino', slot: 'pet', name: '아기 공룡', price: 300, icon: '🦖' },
+    { id: 'p_eagle', slot: 'pet', name: '독수리', price: 400, icon: '🦅' }, { id: 'p_whale', slot: 'pet', name: '고래', price: 500, icon: '🐳' },
+    { id: 'bg_aurora', slot: 'bg', name: '오로라', price: 200, css: 'linear-gradient(160deg,#0b2545 10%,#1fbf8f 45%,#7b5cff 75%,#0b2545)' }, { id: 'bg_galaxy', slot: 'bg', name: '은하수', price: 250, css: 'radial-gradient(ellipse at 50% 50%,#f6d6ff 0 8%,#8a5cf6 28%,#1a1048 70%)' },
+    { id: 'bg_rainbow', slot: 'bg', name: '무지개', price: 300, css: 'linear-gradient(#ff6b6b,#ffb86b,#ffe66b,#7be07b,#6bc8ff,#9b7bff)' }, { id: 'bg_palace', slot: 'bg', name: '황금 궁전', price: 400, css: 'radial-gradient(circle at 50% 35%,#fff6c2,#ffd24a 45%,#b8860b)' },
+    { id: 'bg_fireworks', slot: 'bg', name: '불꽃놀이', price: 500, css: 'radial-gradient(circle at 25% 30%,#ff5ea8 0 6%,transparent 14%),radial-gradient(circle at 72% 40%,#ffd84a 0 6%,transparent 14%),radial-gradient(circle at 45% 75%,#5ee0ff 0 6%,transparent 14%),#14102e' },
   ];
   const ITEM = Object.fromEntries(CATALOG.map(i => [i.id, i]));
   const SLOTS = ['base', 'hat', 'glasses', 'weapon', 'pet', 'bg'];
@@ -134,6 +148,7 @@
     const later = opt.setTimeout || ((f, ms) => setTimeout(f, ms));
     const COUNTDOWN_MS = opt.countdownMs != null ? opt.countdownMs : 3000;
     const END_DELAY_MS = opt.endDelayMs != null ? opt.endDelayMs : 3500;
+    const FAINT_MS = opt.faintMs != null ? opt.faintMs : 5000; // 기절 시간
     const STUCK_MS = opt.stuckMs != null ? opt.stuckMs : 60000; // 이만큼 한 문제에 머물면 '도움이 필요한' 상태
     // 구글 시트 자동 저장: 서버가 onReport(리포트, 방 번호, 다시 보내기)로 받아 시트에 보냅니다. 결과는 sheetResult로 돌려받습니다.
     const onReport = typeof opt.onReport === 'function' ? opt.onReport : null;
@@ -167,6 +182,8 @@
       if (out.area !== 'all' && !unit.areas.some(a => a.id === out.area)) out.area = 'all';
       if (s.diff === 'auto') out.diff = 'auto'; else { const d = intIn(s.diff, 1, 3); if (d) out.diff = d; }
       num('stages', 1, 5); num('perStage', 1, 5); num('diag', 3, 5); num('size', 2, 6);
+      if (typeof s.hearts === 'boolean') out.hearts = s.hearts;
+      if (typeof out.hearts !== 'boolean') out.hearts = DEFAULTS.hearts;
       return out;
     }
     const unitOf = room => QB.unitById(room.settings.unit) || firstUnit;
@@ -210,6 +227,20 @@
     const appSteps = c => Math.min(3, c.appShown || 0);
 
     // ───── 문제 고르기 ─────
+    // ───── 체력 (v0.24) ─────
+    let faintSeq = 0;
+    const heartsOn = room => !!room.settings.hearts;
+    const isFainted = p => !!p.faintUntil && p.faintUntil > now();
+    function hurt(room, p) { // 틀림: ❤️ 1칸 줄고, 0이 되면 기절
+      if (!heartsOn(room)) return;
+      p.hp = Math.max(0, (p.hp == null ? HP_MAX : p.hp) - 1);
+      if (p.hp > 0) return;
+      const tok = p.faintTok = ++faintSeq;
+      p.faintUntil = now() + FAINT_MS;
+      if (p.rs) p.rs.faints = (p.rs.faints || 0) + 1;
+      later(() => { if (p.faintTok === tok && p.faintUntil && rooms.has(room.code)) { p.faintUntil = 0; p.hp = 1; pushAll(room); } }, FAINT_MS);
+    }
+    function heal(room, p, n) { if (heartsOn(room)) p.hp = Math.min(HP_MAX, (p.hp == null ? HP_MAX : p.hp) + n); }
     function targetDiff(room, p) {
       const d = room.settings.diff;
       if (d !== 'auto') return d;
@@ -409,7 +440,7 @@
     function studentState(room, p) {
       const u = unitOf(room), subj = QB.subjectOfUnit(u.id);
       const st = { t: 'state', code: room.code, phase: room.phase, frozen: room.frozen, soundOff: !!room.soundOff, subjectName: subj ? subj.name : '', unitName: u.name, dragon: u.dragon, hue: u.hue, art: u.art ? `img/mon/${u.art}4.webp` : null, chatList: CHAT, giftKinds: GIFTS,
-        me: { pid: p.pid, num: p.num, name: p.name, ok: p.stats.ok, points: p.points, equip: p.equip, owned: p.owned }, notes: p.notes.filter(n => !n.resolved).length, canShop: canShop(room, p) };
+        me: { pid: p.pid, num: p.num, name: p.name, ok: p.stats.ok, points: p.points, equip: p.equip, owned: p.owned, hp: p.hp }, hearts: heartsOn(room), hpMax: HP_MAX, notes: p.notes.filter(n => !n.resolved).length, canShop: canShop(room, p) };
       if (room.phase === 'lobby' || room.phase === 'diagcount' || room.phase === 'diag') {
         // 대기 명단에는 이름만 (누가 레벨 테스트를 끝냈는지도 보여 주지 않음)
         st.roster = [...room.players.values()].filter(x => x.online).sort((a, b) => a.num - b.num).map(x => ({ num: x.num, name: x.name, me: x === p, equip: x.equip, react: reactOf(x), hand: !!x.hand }));
@@ -424,6 +455,7 @@
       if (room.phase === 'playing' && g) {
         const c = curOf(p);
         st.play = { qi: p.qi, per: room.settings.perStage, stageDone: !!p.stageDone };
+        if (isFainted(p)) st.play.faint = { id: p.faintTok, left: p.faintUntil - now() };
         if (c && !p.stageDone) settleOffer(p, g, c);
         if (c && !p.stageDone) st.play.q = { id: c.id, areaName: c.areaName, text: c.text, choices: c.choices, tried: c.tried, eliminated: c.eliminated, gifts: c.gifts.map(x => ({ kind: x.kind, label: x.label, text: x.text })), elimOk: canElim(c), canKinds: Object.keys(GIFTS).filter(k => canUseKind(p, c, k)), steps: c.hints.slice(0, appSteps(c)), offer: !!c.offer, canTake: canTakeGift(p, c) };
         if (p.twin) st.play.twin = { id: p.twin.id, state: p.twin.state, allowed: p.twin.state === 'reward' ? allowedKinds(p, groupOf(room, p)) : undefined, fmt: p.twin.answers ? fmtOf(p.twin.answers) : 'text', text: p.twin.text, areaName: p.twin.areaName, diff: p.twin.diff, tries: p.twin.tries, steps: p.twin.hints ? p.twin.hints.slice(0, Math.min(3, p.twin.tries)) : [] };
@@ -488,7 +520,7 @@
       const survey = Object.keys(SURVEY).map(id => { const v = students.map(x => x.survey[id]).filter(x => x != null); return { id, text: SURVEY[id], n: v.length, yes: v.filter(x => x === 2).length, some: v.filter(x => x === 1).length, no: v.filter(x => x === 0).length, avg: avg(v) }; });
       return {
         t: 'tresearch', empty: false,
-        meta: { code: room.code, date: new Date(L.start).toISOString(), unit: u.name, area: room.settings.area === 'all' ? '전체' : ((u.areas.find(a => a.id === room.settings.area) || {}).name || ''), stages: room.settings.stages, perStage: room.settings.perStage, size: room.settings.size, minutes: Math.round((end - L.start) / 6000) / 10, ended: room.phase === 'ended', hintOrder: L.hintOrder || HINT_ORDER },
+        meta: { code: room.code, date: new Date(L.start).toISOString(), unit: u.name, area: room.settings.area === 'all' ? '전체' : ((u.areas.find(a => a.id === room.settings.area) || {}).name || ''), stages: room.settings.stages, perStage: room.settings.perStage, size: room.settings.size, minutes: Math.round((end - L.start) / 6000) / 10, ended: room.phase === 'ended', hintOrder: L.hintOrder || HINT_ORDER, heartsRule: L.hearts ? '켜짐' : '꺼짐' },
         summary: {
           students: students.length, groups: groups.length, allSolveRate: pct(room.groups.reduce((a, g) => a + g.cleared, 0), room.groups.length * room.settings.stages),
           finishedGroups: room.groups.filter(g => g.done).length, solveRate: avg(students.map(x => x.solveRate)),
@@ -509,7 +541,7 @@
           pid: p.pid, num: p.num, name: p.name, online: p.online, level: p.level || 0, group: p.group, react: reactOf(p), hand: !!p.hand, bot: !!p.bot,
           diag: p.diag ? { done: p.diag.done, ok: p.diag.ok, idx: p.diag.idx, total: p.diag.qs.length } : null,
           done: p.qi || 0, stageDone: !!p.stageDone, stuck: isStuck(p, c), twin: p.twin ? p.twin.state : null,
-          ok: p.stats.ok, wrong: p.stats.wrong, extra: p.stats.extra, hintsSent: p.stats.hintsSent, hintsGot: p.stats.hintsGot, hintsMade: madeCount(p), points: p.points,
+          ok: p.stats.ok, wrong: p.stats.wrong, extra: p.stats.extra, hintsSent: p.stats.hintsSent, hintsGot: p.stats.hintsGot, hintsMade: madeCount(p), points: p.points, owned: p.owned, equip: p.equip,
           notes: p.notes.length, notesResolved: p.notes.filter(n => n.resolved).length,
           weak: areas.filter(a => a.cls === 'weak').map(a => a.name), review: areas.filter(a => a.cls === 'review').map(a => a.name),
           levels: Object.fromEntries(areas.map(a => [a.area, a.level])), topMistake: (areas.flatMap(a => a.mistakes).sort((m, n) => n.count - m.count)[0] || {}).name || '',
@@ -558,7 +590,8 @@
     function startPlaying(room) {
       countdownTo(room, 'countdown', () => {
         for (const g of room.groups) { g.stage = 1; g.cleared = 0; g.done = false; g.box = []; g.made = {}; g.stageStart = now(); setStageHp(room, g); }
-        room.rlog = { start: now(), hintOrder: HINT_ORDER, end: null, gifts: [], stages: [], freezes: 0, frozenMs: 0, frozenAt: null };
+        for (const p of room.players.values()) { p.hp = HP_MAX; p.faintUntil = 0; }
+        room.rlog = { start: now(), hintOrder: HINT_ORDER, hearts: heartsOn(room), end: null, gifts: [], stages: [], freezes: 0, frozenMs: 0, frozenAt: null };
         room.phase = 'playing';
         for (const p of room.players.values()) if (groupOf(room, p)) dealStage(room, p, true);
         pushAll(room);
@@ -586,12 +619,12 @@
       if (room.rlog) { room.prevResearch = research(room); room.rlog = null; } // 지난 게임 리포트는 대기실에서도 내려받을 수 있게 남겨 둠
       room.token++; room.phase = 'lobby'; room.frozen = false; room.groups = []; room.gseq = 0; room.tdetail = null;
       for (const [pid, p] of room.players) {
-        if (!p.online) { room.players.delete(pid); continue; }
+        if (!p.online) { stash(room, p); room.players.delete(pid); continue; }
         Object.assign(p, freshProgress(), { react: null, hand: false });
       }
     }
     function freshProgress() {
-      return { level: 0, diag: null, group: null, queue: [], qi: 0, stageDone: false, twin: null, lastArea: null, seen: new Set(), seenTwin: new Set(), records: [], notes: [], stats: { ok: 0, wrong: 0, extra: 0, hintsSent: 0, hintsGot: 0 }, chatAt: 0, made: {}, rs: { dealt: 0, hands: 0, handUpAt: null, handMs: 0, lowered: 0, reacts: {}, survey: null } };
+      return { level: 0, diag: null, group: null, queue: [], qi: 0, stageDone: false, twin: null, lastArea: null, seen: new Set(), seenTwin: new Set(), records: [], notes: [], stats: { ok: 0, wrong: 0, extra: 0, hintsSent: 0, hintsGot: 0 }, chatAt: 0, made: {}, hp: HP_MAX, faintUntil: 0, rs: { dealt: 0, hands: 0, handUpAt: null, handMs: 0, lowered: 0, reacts: {}, survey: null } };
     }
 
     function onCorrect(room, p, g, c) {
@@ -605,7 +638,7 @@
         // 이 학생이 마지막이라 합동 공격이 열리면 새 추가 문제는 내지 않음 (지난 스테이지에서 풀던 문제는 이어서)
         if (!keepTwin(p)) p.twin = isReady(room, g) ? null : { state: 'choose' };
       } else showCurrent(room, p);
-      toGroup(room, g, { t: 'fx', kind: 'hit', by: p.name, dmg: SMALL });
+      toGroup(room, g, { t: 'fx', kind: 'hit', by: p.name, pid: p.pid, dmg: SMALL, weapon: p.equip.weapon || null, pet: p.equip.pet || null }); // 무기·펫은 연출만 (데미지는 같음)
     }
     function giftText(room, kind, c) {
       if (kind === 'elim') {
@@ -655,7 +688,7 @@
         room.rlog.stages.push({ gid: g.id, stage: g.stage, start: g.stageStart || room.rlog.start, cleared: now(), size: mem.length, gapMs: ts.length > 1 ? Math.max(...ts) - Math.min(...ts) : 0 });
         g.stageStart = now();
       }
-      const ev = { t: 'fx', kind: 'team', by: by.name, dmg, monster: mon, cleared: true, last };
+      const ev = { t: 'fx', kind: 'team', by: by.name, dmg, monster: mon, cleared: true, last, weapon: by.equip.weapon || null, pets: membersOf(room, g).filter(m => m.online && m.equip.pet).map(m => m.equip.pet) };
       for (const m of membersOf(room, g)) if (m.online) m.points += POINTS.team;
       if (last) { g.done = true; for (const m of membersOf(room, g)) m.twin = null; }
       else {
@@ -680,6 +713,25 @@
       placeLate(room, p);
       pushAll(room);
     }
+    // ───── 별 누적 (v0.24): 별·산 물건은 선생님 컴퓨터 브라우저에 번호·이름(띄어쓰기 무시)으로 저장하고, 방을 만들 때 서버로 보내 줍니다 ─────
+    const bankKey = (num, name) => num + '|' + String(name || '').replace(/\s/g, '');
+    const defaultEquip = num => ({ base: BASES[(num - 1) % BASES.length], bg: 'bg_night' });
+    function cleanBank(e) {
+      const num = intIn(e && e.num, 1, 60), name = cleanName(e && e.name);
+      if (!num || !name) return null;
+      const owned = [...new Set(Array.isArray(e.owned) ? e.owned : [])].filter(id => ITEM[id] && ITEM[id].price > 0);
+      const equip = defaultEquip(num), eq = e.equip && typeof e.equip === 'object' ? e.equip : {};
+      for (const sl of SLOTS) { const it = ITEM[eq[sl]]; if (it && it.slot === sl && (it.price === 0 || owned.indexOf(it.id) >= 0)) equip[sl] = it.id; }
+      return { num, name, points: intIn(e.points, 0, 999999) || 0, owned, equip };
+    }
+    function stash(room, p) { if (room.bank && !p.bot) room.bank.set(bankKey(p.num, p.name), { num: p.num, name: p.name, points: p.points, owned: p.owned.slice(), equip: Object.assign({}, p.equip) }); }
+    function fromBank(room, p, force) {
+      const e = room.bank && room.bank.get(bankKey(p.num, p.name));
+      if (p.bot || !e) return false;
+      if (force || !p.owned.length) { p.points = force ? e.points : p.points + e.points; p.owned = e.owned.slice(); p.equip = Object.assign({}, e.equip); }
+      else { p.points += e.points; for (const id of e.owned) if (p.owned.indexOf(id) < 0) p.owned.push(id); }
+      return true;
+    }
     function newCode() { let c; do { c = String(R(1000, 9999)); } while (rooms.has(c)); return c; }
 
     // ───── 메시지 처리 ─────
@@ -703,6 +755,7 @@
         }
         case 'tcreate': {
           const room = { code: newCode(), key: uid(), tconn: conn, settings: cleanSettings(m.settings, DEFAULTS), phase: 'lobby', frozen: false, players: new Map(), groups: [], gseq: 0, token: 0, touched: now(), tdetail: null };
+          room.bank = new Map(); room.bankLoaded = false;
           rooms.set(room.code, room);
           conn.ctx = { role: 't', room: room.code };
           send(conn, { t: 'troom', code: room.code, key: room.key });
@@ -726,7 +779,8 @@
           if (p && p.name !== name) return send(conn, { t: 'jerror', msg: `${num}번은 이미 다른 이름(${p.name})으로 들어와 있어요. 번호를 확인해 주세요.` });
           if (!p) {
             if (room.phase === 'ended') return send(conn, { t: 'jerror', msg: '게임이 끝났어요. 선생님이 새 게임을 열면 들어올 수 있어요.' });
-            p = Object.assign({ pid: uid(), num, name, conn: null, online: false, points: 0, owned: [], equip: { base: BASES[(num - 1) % BASES.length], bg: 'bg_night' }, react: null, hand: false }, freshProgress());
+            p = Object.assign({ pid: uid(), num, name, conn: null, online: false, points: 0, owned: [], equip: defaultEquip(num), react: null, hand: false }, freshProgress());
+            if (room.bankLoaded) { fromBank(room, p, true); p.banked = true; } // 지난 수업에서 모은 별·물건 이어 받기
             room.players.set(p.pid, p);
           }
           room.touched = now();
@@ -808,10 +862,24 @@
             const p = room.players.get(String(m.pid));
             if (!p) return;
             send(p.conn, { t: 'kicked' }); if (p.conn) p.conn.ctx = {};
-            room.players.delete(p.pid);
+            stash(room, p); room.players.delete(p.pid);
             return pushAll(room);
           }
           case 'tsheet': return reportSheet(room, true);
+          case 'tbank': { // 선생님 브라우저에 저장된 별·물건 (force: 파일 불러오기 → 지금 방 학생에게도 바로 적용)
+            if (!room.bank) room.bank = new Map();
+            const list = Array.isArray(m.list) ? m.list.slice(0, 500) : [];
+            for (const e of list) { const c = cleanBank(e); if (c) room.bank.set(bankKey(c.num, c.name), c); }
+            room.bankLoaded = true;
+            for (const p of room.players.values()) if (!p.bot && (m.force || !p.banked)) { fromBank(room, p, !!m.force); p.banked = true; }
+            return pushAll(room);
+          }
+          case 'tbankreset': { // 별 초기화: 모든 학생의 별과 산 물건을 지움
+            if (room.bank) room.bank.clear();
+            for (const p of room.players.values()) if (!p.bot) { p.points = 0; p.owned = []; p.equip = defaultEquip(p.num); }
+            toast(conn, '⭐ 모든 학생의 별과 산 물건을 지웠어요.');
+            return pushAll(room);
+          }
           case 'tresearch': return send(conn, room.rlog ? research(room) : room.prevResearch ? Object.assign({}, room.prevResearch, { previous: true }) : research(room));
           case 'tdetail': {
             const p = m.pid ? room.players.get(String(m.pid)) : null;
@@ -857,17 +925,20 @@
           if (room.phase !== 'playing' || !g || p.stageDone) return;
           const c = curOf(p);
           if (!c || (m.qid && m.qid !== c.id)) return;
+          if (isFainted(p)) return toast(conn, '😵 기절했어요! 조금만 기다리면 일어나요.');
           const choice = choiceIn(c.choices);
           if (choice === null || c.tried.indexOf(choice) >= 0 || c.eliminated.indexOf(choice) >= 0) return;
           if (choice === c.answer) {
-            send(conn, { t: 'result', correct: true });
+            heal(room, p, 1);
+            send(conn, { t: 'result', correct: true, hp: p.hp });
             onCorrect(room, p, g, c);
           } else {
             c.tried.push(choice); p.stats.wrong++;
+            hurt(room, p);
             if (boxHasFor(p, g, c)) c.offer = true; // 친구 힌트를 먼저 제안 (앱 힌트는 잠시 미룸)
             else { c.offer = false; c.appShown = Math.min(3, (c.appShown || 0) + 1); }
             saveNote(room, p, { key: 'q:' + c.qid, kind: 'q', areaName: c.areaName, text: c.text, choices: c.choices, answer: c.answer, answers: [c.answerText], mine: c.choices[choice], hints: c.hints, explain: c.hints[2] });
-            send(conn, { t: 'result', correct: false, step: appSteps(c), offer: !!c.offer, saved: true });
+            send(conn, { t: 'result', correct: false, step: appSteps(c), offer: !!c.offer, saved: true, hp: p.hp, faint: isFainted(p) });
           }
           return pushAll(room);
         }
@@ -935,6 +1006,7 @@
           const same = g.box.filter(b => b.kind === kind);
           if (!same.length) return toast(conn, '이 힌트는 상자에 없어요.');
           applyGift(room, g, pick(same), p);
+          if (isFainted(p)) { p.faintUntil = 0; p.faintTok = ++faintSeq; p.hp = Math.min(HP_MAX, HP_GIFT); toast(conn, `💖 친구 힌트 덕분에 바로 일어났어요! ❤️ ${p.hp}칸`); }
           return pushAll(room);
         }
         case 'attack': {
